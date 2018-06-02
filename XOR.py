@@ -69,13 +69,14 @@ class XORNet(torch.nn.Module):
         a Tensor of output data. We can use Modules defined in the constructor as
         well as arbitrary operators on Tensors.
         """
-        h_relu = self.linear1(x).clamp(min=0)
-        y_pred = self.linear2(h_relu)
+        r = torch.nn.functional.leaky_relu
+        h = r(self.linear1(x))
+        y_pred = r(self.linear2(h))
         return y_pred
 
 # Construct our model by instantiating the class defined above
 model = XORNet()
-print(list(model.parameters()))
+
 # Construct our loss function and an Optimizer. The call to model.parameters()
 # in the SGD constructor will contain the learnable parameters of the two
 # nn.Linear modules which are members of the model.
@@ -94,9 +95,9 @@ for t in range(2000):
     loss.backward()
     optimizer.step()
 
-print(model.eval())
 v3 = torch.tensor([[0., 1.],])
 o3 = model(x)
+print(x)
 print(o3)
 print(y)
 print(list(model.parameters()))
