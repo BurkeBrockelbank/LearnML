@@ -5,7 +5,8 @@ from __future__ import print_function
 from __future__ import division
 import Monkey
 import Roomgen
-import 
+from torch import *
+import torch.nn as nn
 
 SIGHT =[[0,0,0,0,0,0,0,1,1,1,1,1,0,0,0,0,0,0,0],
 		[0,0,0,0,0,1,1,1,1,1,1,1,1,1,0,0,0,0,0],
@@ -55,7 +56,7 @@ class Grid:
 			# Clean up dead monkeys
 			# Place bananas
 
-	def surroundingsMap(self, pos):
+	def surroundingsMap(self, pos, putMonkey=False):
 		# First we need to recenter the map to just a range
 		# that the monkey has a chance of seeing.
 		radius = len(SIGHT)//2
@@ -73,15 +74,15 @@ class Grid:
 			else:
 				thisRow = [0]*len(goodColumns)
 			surr.append(thisRow)
-		print(Roomgen.concretize(surr))
 		# Now we need to block out any stuff that the monkey can't see
 		# First deal with things that are too far away.
 		for i, sightRow in enumerate(SIGHT):
 			for j, sightEl in enumerate(sightRow):
 				if sightEl == 0:
 					surr[i][j] = Roomgen.ABSTRACTIONS['?']
+		print('Pre barrier map:')
 		print(Roomgen.concretize(surr))
-		# Now deal with things behind barriers
+		# Now deal with things behind barriers being hidden
 		# Iterate through all the surroundings
 		for j, row in enumerate(surr):
 			for i, el in enumerate(row):
@@ -89,12 +90,29 @@ class Grid:
 				if el == Roomgen.ABSTRACTIONS['#']:
 					# Eliminate all the invisible places
 					invisible = self.invisibleCone(radius, (radius, radius), (i,j))
-					print('Block at',(i,j),'obscures',invisible)
 					for x,y in invisible:
 						surr[x][y] = Roomgen.ABSTRACTIONS['?']
+		# Put the monkey back
+		if putMonkey:
+			surr[radius][radius] = Roomgen.ABSTRACTIONS['m']
 		return surr
 
-	def surroundingVector(self, pos)
+	def surroundingVector(self, pos):
+		sightVec = []
+		for sightRow, surrRow in zip(SIGHT, self.surroundingsMap(pos)):
+			for sightEl, surrEl in zip(sightRow, surrRow):
+				if sightEl == 1: #If this block is within sight range
+					# Add the character of this block
+					sightVec.append(surrEl)
+		# Now for each type of object, we need to have a different element space
+		xMatrix = [[0]*len(Roomgen.BLOCKTYPES) for xx in len(sightVec)]
+		for ii, tt in enumerate(sightVec):
+			xMatrix[ii][Roomgen.ABSTRACTS.index(tt)] = 1
+		xVec = []
+		for row in xMatrix:
+			xVec += row
+		return pytorch.tensor(xVec)
+
 
 	def invisibleCone(self, radius, monkeyPos, objectPos):
 		# In this function we work in the reference frame where
@@ -113,12 +131,10 @@ class Grid:
 					if y==p[1]:
 						pass
 					else:
-						print(x,y)
 						invisible.append((x,y))
 		else: # The case where the barrier is directly above the monkey
 			for y in range(p[1]+1, radius+1):
 				invisible.append((0,y))
-		print('IC: Block at',p,'obscures',invisible)
 		# Now we need to revert the coordinate system back to what it was
 		# first undo the reflections imposed by the absolute value
 		xMult = 1

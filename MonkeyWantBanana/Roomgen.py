@@ -7,15 +7,19 @@ from __future__ import print_function
 from __future__ import division
 
 # Define the ABSTRACTIONS
-ABSTRACTIONS = {'?': -1,#unknown
-					'#':0,#Barrier
-					'm':1,#Monkey
-					' ':2,#Empty space
-					'b':3,#Banana
-					}
+# ? Unknown
+# # Barrier
+# m Monkey
+#   Empty space
+# b Banana
+# d Danger
+BLOCKTYPES = ['?', '#', 'm', ' ', 'b', 'd']
+ABSTRACTS = [-1, 0, 1, 2, 3, 4]
+ABSTRACTIONS = dict()
 CONCRETIZATIONS = dict()
-for key in ABSTRACTIONS.keys():
-	CONCRETIZATIONS[ABSTRACTIONS[key]] = key
+for key, value in zip(BLOCKTYPES, ABSTRACTS):
+	ABSTRACTIONS[key] = value
+	CONCRETIZATIONS[value] = key
 
 # Make the abstract and concretize functions
 def abstract(mapPicture):
