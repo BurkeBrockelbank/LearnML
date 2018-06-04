@@ -16,3 +16,8 @@ Hello,
 Burke Brockelbank
 bbrockel@ucalgary.ca
 burkelibrockelbank.herokuapp.com
+
+
+
+DEVNOTES
+Indexing is to be done in matrix indexing format ((row, column) with (0,0) at the top left) unless otherwise stated.

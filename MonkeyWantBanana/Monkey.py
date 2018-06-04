@@ -31,13 +31,13 @@ class Monkey:
 	def setPos(self, p):
 		self.pos = p
 	def move(self, direction):
-		if direction == 'l':
-			self.pos = (self.pos[0]-1, self.pos[1])
-		elif direction == 'r':
-			self.pos = (self.pos[0]+1, self.pos[1])
-		elif direction == '0':
-			self.pos = (self.pos[0], self.pos[1])
-		elif direction == 'u':
-			self.pos = (self.pos[0], self.pos[1]+1)
-		elif direction == 'd':
+		if direction == 'a':
 			self.pos = (self.pos[0], self.pos[1]-1)
+		elif direction == 'd':
+			self.pos = (self.pos[0], self.pos[1]+1)
+		elif direction == ' ':
+			self.pos = (self.pos[0], self.pos[1])
+		elif direction == 'w':
+			self.pos = (self.pos[0]-1, self.pos[1])
+		elif direction == 's':
+			self.pos = (self.pos[0]+1, self.pos[1])

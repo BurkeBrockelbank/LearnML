@@ -28,15 +28,16 @@ def generateTrainingData(N):
 	for ii in range(N):
 		blocked = True
 		while blocked :
-			position = (randrange(len(fullMap[0])), randrange(len(fullMap)))
-			if fullMap[position[1]][position[0]] == Roomgen.ABSTRACTIONS[' ']:
+			position = (randrange(len(fullMap)), randrange(len(fullMap[0])))
+			if fullMap[position[0]][position[1]] == Roomgen.ABSTRACTIONS[' ']:
 				blocked = False
 		# Put the monkey there
 		g.monkeys[0].setPos(position)
 		# Get the surroundings
 		surr = g.surroundingsMap(position, True)
 		# Print it out
-		print(Roomgen.concretize(surr))
+		print('Map')
+		print(Roomgen.concretize(surr, True))
 		direction = input('>>>')
 		if direction in list('wsad '): #Good input
 			testData.append((direction, surr))
@@ -45,3 +46,6 @@ def generateTrainingData(N):
 	return testData
 
 generateTrainingData(3)
+# testMonkey = Monkey.Monkey()
+# g = Grid.Grid([testMonkey], [(3,3)], fullMap)
+# g.invisibleCone(5, (0,0), (3,2))

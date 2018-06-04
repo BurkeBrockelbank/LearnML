@@ -76,6 +76,11 @@ class XORNet(torch.nn.Module):
 
 # Construct our model by instantiating the class defined above
 model = XORNet()
+# Initialize the weights to an intelligent guess
+model.linear1.weight.data = torch.tensor([[0.9,-1.05],[-1.,1.]])
+model.linear1.bias.data = torch.tensor([-0.09,0.2])
+model.linear2.weight.data = torch.tensor([[1.03,1.12]])
+model.linear2.bias.data = torch.tensor([0.])
 
 # Construct our loss function and an Optimizer. The call to model.parameters()
 # in the SGD constructor will contain the learnable parameters of the two
@@ -94,10 +99,10 @@ for t in range(2000):
     optimizer.zero_grad()
     loss.backward()
     optimizer.step()
-
-v3 = torch.tensor([[0., 1.],])
-o3 = model(x)
-print(x)
-print(o3)
-print(y)
 print(list(model.parameters()))
+v3 = torch.tensor([[0., 1.],])
+yPred = model(x)
+print(x)
+print(yPred)
+print(y)
+print('loss', criterion(yPred, y))
