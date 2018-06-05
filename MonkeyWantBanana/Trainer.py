@@ -17,7 +17,7 @@ mapF.close()
 
 fullMap = Roomgen.abstract(mapStr)
 
-def generateTrainingData(N):
+def generateTrainingData(N, filePath):
 	# This is a creator for generating data from the map
 	# Create a monkey
 	testMonkey = Monkey.Monkey()
@@ -41,11 +41,15 @@ def generateTrainingData(N):
 		direction = input('>>>')
 		if direction in list('wsad '): #Good input
 			testData.append((direction, surr))
+			file = open(filePath, 'a')
+			file.write(str((direction,surr)))
+			file.write('\n')
+			file.close()
 		else:
 			print('Bad input')
 	return testData
 
-generateTrainingData(3)
+testData = generateTrainingData(200, 'sporadicData.txt')
 # testMonkey = Monkey.Monkey()
 # g = Grid.Grid([testMonkey], [(3,3)], fullMap)
 # g.invisibleCone(5, (0,0), (3,2))

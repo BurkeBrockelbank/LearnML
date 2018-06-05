@@ -32,19 +32,19 @@ def abstract(mapPicture):
 		abstractRows.append(list(abstractRow))
 	return abstractRows
 
-def concretize(mapList,indeces=False):
+def concretize(mapList,indeces=False,indexOffset=(0,0)):
 	mapPicture = ''
 	if indeces:
 		mapPicture = ' '
 		for i in range(len(mapList[0])):
-			mapPicture += str(i%10)
+			mapPicture += str((indexOffset[1]+i)%10)
 		mapPicture += '\n'
 	for i, abstractRow in enumerate(mapList):
 		row = ''
 		for integer in abstractRow:
 			row += CONCRETIZATIONS[integer]
 		if indeces:
-			mapPicture += str(i%10)
+			mapPicture += str((indexOffset[0]+i)%10)
 		mapPicture += row+'\n'
 	mapPicture = mapPicture[:-1] #Strip the last newline character
 	return mapPicture
