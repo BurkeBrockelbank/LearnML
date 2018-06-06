@@ -7,15 +7,15 @@ import torch
 
 # # Create the net
 # class XORNet(nn.Module):
-# 	def __init__(self):
-# 		super(XORNet, self).__init__()
-# 		self.fc1 = nn.Linear(2,2)
-# 		self.fc2 = nn.Linear(2,1)
+#     def __init__(self):
+#         super(XORNet, self).__init__()
+#         self.fc1 = nn.Linear(2,2)
+#         self.fc2 = nn.Linear(2,1)
 
-# 	def forward(self, x):
-# 		x = F.relu(self.fc1(x))
-# 		x = F.relu(self.fc2(x))
-# 		return x
+#     def forward(self, x):
+#         x = F.relu(self.fc1(x))
+#         x = F.relu(self.fc2(x))
+#         return x
 
 # # Create the training data
 # # a | b | aXORb
@@ -25,9 +25,9 @@ import torch
 # # 1 | 0 | 1
 # # 1 | 1 | 0
 data = torch.tensor([[0., 0, 0],
-					[0, 1, 1],
-					[1, 0, 1],
-					[1, 1, 0]])
+                    [0, 1, 1],
+                    [1, 0, 1],
+                    [1, 1, 0]])
 x = data[:,0:2]
 y = data[:,[2]]
 
@@ -38,17 +38,17 @@ y = data[:,[2]]
 # criterion = nn.MSELoss(size_average=False)
 # optimizer = torch.optim.SGD(net.parameters(), lr=1E-4)
 # for t in range(10):
-# 	# Forward pass
-# 	print('type(inputData) =', type(inputData))
-# 	print('type(torch.randn(4, 2)) =', type(torch.randn(4, 2)))
-# 	y = net(inputData)
-# 	#Loss
-# 	loss = criterion(y,targetData)
+#     # Forward pass
+#     print('type(inputData) =', type(inputData))
+#     print('type(torch.randn(4, 2)) =', type(torch.randn(4, 2)))
+#     y = net(inputData)
+#     #Loss
+#     loss = criterion(y,targetData)
 
-# 	#Zero gradients, perform a backward pass, update weights
-# 	optimizer.zero_grad()
-# 	loss.backward()
-# 	optimizer.step()
+#     #Zero gradients, perform a backward pass, update weights
+#     optimizer.zero_grad()
+#     loss.backward()
+#     optimizer.step()
 
 # -*- coding: utf-8 -*-
 
