@@ -38,17 +38,18 @@ from random import randrange
 #         [0,1,1,1,1,1,0],
 #         [0,0,0,1,0,0,0]]
 
-SIGHT =[[0,0,0,1,1,1,1,1,0,0,0],
-        [0,0,1,1,1,1,1,1,1,0,0],
-        [0,1,1,1,1,1,1,1,1,1,0],
-        [1,1,1,1,1,1,1,1,1,1,1],
-        [1,1,1,1,1,1,1,1,1,1,1],
-        [1,1,1,1,1,1,1,1,1,1,1],
-        [1,1,1,1,1,1,1,1,1,1,1],
-        [1,1,1,1,1,1,1,1,1,1,1],
-        [0,1,1,1,1,1,1,1,1,1,0],
-        [0,0,1,1,1,1,1,1,1,0,0],
-        [0,0,0,1,1,1,1,1,0,0,0]]
+# SIGHT =[[0,0,0,1,1,1,1,1,0,0,0],
+#         [0,0,1,1,1,1,1,1,1,0,0],
+#         [0,1,1,1,1,1,1,1,1,1,0],
+#         [1,1,1,1,1,1,1,1,1,1,1],
+#         [1,1,1,1,1,1,1,1,1,1,1],
+#         [1,1,1,1,1,1,1,1,1,1,1],
+#         [1,1,1,1,1,1,1,1,1,1,1],
+#         [1,1,1,1,1,1,1,1,1,1,1],
+#         [0,1,1,1,1,1,1,1,1,1,0],
+#         [0,0,1,1,1,1,1,1,1,0,0],
+#         [0,0,0,1,1,1,1,1,0,0,0]]
+SIGHT = [[1]*11 for _ in range(11)]
 
 class Grid:
     def __init__(self, monkeys, monkeyPos, room):
@@ -61,6 +62,10 @@ class Grid:
         self.turnCount = 0
 
     def tick(self, trainingData = False, manualControl = False, wait = False):
+        """
+        Ticking function for a grid object moves all the monkeys, distributes
+        bananas, and kills monkeys if it needs to.
+        """
         print('TURN', self.turnCount)
         for n, monkey in enumerate(self.monkeys):
             print('M',n,' B',monkey.food,sep='')
@@ -80,6 +85,7 @@ class Grid:
                     else:
                         print('Input must be w, a, s, d, or space.')
             else:
+                # Automatic control
                 x = [float(monkey.food)]+list(surrVec)
                 x = torch.tensor(x)
                 direction = monkey.tryMove(x)
@@ -150,83 +156,84 @@ class Grid:
             for j, sightEl in enumerate(sightRow):
                 if sightEl == 0:
                     surr[i][j] = Roomgen.ABSTRACTIONS['?']
-        # Now deal with things behind barriers being hidden
-        # Iterate through all the surroundings and find the
-        # cones of obstruction that occur
-        invisible = []
-        for i, row in enumerate(surr):
-            invisibleRow = []
-            for j, el in enumerate(row):
-                # If you hit a barrier,
-                if el == Roomgen.ABSTRACTIONS['#']:
-                    # Eliminate all the invisible places
-                    invisibleRow.append(self.invisibleCone(radius, (radius, radius), (i,j)))
-                else:
-                    invisibleRow.append([])
-            invisible.append(invisibleRow)
-        # Now decide which spaces need to be hidden
-        hiddenSpots = []
-        for i, row in enumerate(invisible):
-            for j, el in enumerate(row):
-                for p in el:
-                    if p not in hiddenSpots:
-                        if surr[p[0]][p[1]] != Roomgen.ABSTRACTIONS['#']: # We are not obscuring a barrier
-                            hiddenSpots.append(p)
-                        elif (p[0] in [i+1,i-1]) != (p[1] in [j+1,j-1]): # We are obscuring a barrier.
-                            # Barriers cannot normally obscure barriers that are directly adjacent
-                            # otherwise we would run into issues like
-                            # #        #   ?    
-                            # #        #  ???     
-                            # # #      # ???      
-                            # # #      # #?        
-                            # #m       #m      
-                            # ######## #########
-                            # However this leaves us with a few cases which still need to be fixed.
-                            # For example,
-                            # m ## -->    m ## instead of m #?
-                            # We will obscure only if there is also a barrier adjacent in the other
-                            # direction or it is directly in line with the monkey
-                            pDiff = tuple([a-b for a,b in zip(p,(i,j))])
-                            if pDiff in [(0,1), (0,-1)]:
-                                # Like m
-                                # or   m   ##
-                                #      m
-                                # Find out which direction the monkey is (monkey is at j=radius)
-                                if i > radius:
-                                    # Monkey is above
-                                    if surr[p[0]-1][p[1]] == Roomgen.ABSTRACTIONS['#']:
-                                        # Obscure it
-                                        hiddenSpots.append(p)
-                                elif i == radius:
-                                    # Monkey is beside, so obscure it
-                                    hiddenSpots.append(p)
-                                else:
-                                    # Monkey is below
-                                    if surr[p[0]+1][p[1]] == Roomgen.ABSTRACTIONS['#']:
-                                        # Obscure it
-                                        hiddenSpots.append(p)
-                            else: # pDiff in [(1,0), (-1,0)]
-                                # Like mmm
-                                #       #
-                                #       #
-                                # Find out which direction the monkey is
-                                if j > radius:
-                                    # Monkey is to left
-                                    if surr[p[0]][p[1]-1] == Roomgen.ABSTRACTIONS['#']:
-                                        # Obscure it
-                                        hiddenSpots.append(p)
-                                elif j == radius:
-                                    # Monkey is above/below, so obscure it
-                                    hiddenSpots.append(p)
-                                else:
-                                    # Monkey is to right
-                                    if surr[p[0]][p[1]+1] == Roomgen.ABSTRACTIONS['#']:
-                                        # Obscure it
-                                        hiddenSpots.append(p)
-                        else: # Obscuring a barrier that is not adjacent (always fine)
-                            hiddenSpots.append(p)
-        for p in hiddenSpots:
-            surr[p[0]][p[1]] = Roomgen.ABSTRACTIONS['?']
+        # # Now deal with things behind barriers being hidden
+        # # Iterate through all the surroundings and find the
+        # # cones of obstruction that occur
+        # invisible = []
+        # for i, row in enumerate(surr):
+        #     invisibleRow = []
+        #     for j, el in enumerate(row):
+        #         # If you hit a barrier,
+        #         if el == Roomgen.ABSTRACTIONS['#']:
+        #             # Eliminate all the invisible places
+        #             invisibleRow.append(self.invisibleCone(radius, (radius, radius), (i,j)))
+        #         else:
+        #             invisibleRow.append([])
+        #     invisible.append(invisibleRow)
+        # # Now decide which spaces need to be hidden
+        # hiddenSpots = []
+        # for i, row in enumerate(invisible):
+        #     for j, el in enumerate(row):
+        #         for p in el:
+        #             if p not in hiddenSpots:
+        #                 if surr[p[0]][p[1]] != Roomgen.ABSTRACTIONS['#']: # We are not obscuring a barrier
+        #                     hiddenSpots.append(p)
+        #                 elif (p[0] in [i+1,i-1]) != (p[1] in [j+1,j-1]): # We are obscuring a barrier.
+        #                     # Barriers cannot normally obscure barriers that are directly adjacent
+        #                     # otherwise we would run into issues like
+        #                     # #        #   ?    
+        #                     # #        #  ???     
+        #                     # # #      # ???      
+        #                     # # #      # #?        
+        #                     # #m       #m      
+        #                     # ######## #########
+        #                     # However this leaves us with a few cases which still need to be fixed.
+        #                     # For example,
+        #                     # m ## -->    m ## instead of m #?
+        #                     # We will obscure only if there is also a barrier adjacent in the other
+        #                     # direction or it is directly in line with the monkey
+        #                     pDiff = tuple([a-b for a,b in zip(p,(i,j))])
+        #                     mDiff = tuple([a-b for a,b in zip(pos,(i,j))])
+        #                     if pDiff in [(0,1), (0,-1)]:
+        #                         # Like m
+        #                         # or   m   ##
+        #                         #      m
+        #                         # Find out which direction the monkey is (monkey is at j=radius)
+        #                         if i > radius:
+        #                             # Monkey is above
+        #                             if surr[p[0]-1][p[1]] == Roomgen.ABSTRACTIONS['#']:
+        #                                 # Obscure it
+        #                                 hiddenSpots.append(p)
+        #                         elif i == radius:
+        #                             # Monkey is beside, so obscure it
+        #                             hiddenSpots.append(p)
+        #                         else:
+        #                             # Monkey is below
+        #                             if surr[p[0]+1][p[1]] == Roomgen.ABSTRACTIONS['#']:
+        #                                 # Obscure it
+        #                                 hiddenSpots.append(p)
+        #                     else: # pDiff in [(1,0), (-1,0)]
+        #                         # Like mmm
+        #                         #       #
+        #                         #       #
+        #                         # Find out which direction the monkey is
+        #                         if j > radius:
+        #                             # Monkey is to left
+        #                             if surr[p[0]][p[1]-1] == Roomgen.ABSTRACTIONS['#']:
+        #                                 # Obscure it
+        #                                 hiddenSpots.append(p)
+        #                         elif j == radius:
+        #                             # Monkey is above/below, so obscure it
+        #                             hiddenSpots.append(p)
+        #                         else:
+        #                             # Monkey is to right
+        #                             if surr[p[0]][p[1]+1] == Roomgen.ABSTRACTIONS['#']:
+        #                                 # Obscure it
+        #                                 hiddenSpots.append(p)
+        #                 else: # Obscuring a barrier that is not adjacent (always fine)
+        #                     hiddenSpots.append(p)
+        # for p in hiddenSpots:
+        #     surr[p[0]][p[1]] = Roomgen.ABSTRACTIONS['?']
         # Put the monkey back
         if putMonkey:
             surr[radius][radius] = Roomgen.ABSTRACTIONS['m']
