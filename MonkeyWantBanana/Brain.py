@@ -110,9 +110,98 @@ class Brain2(torch.nn.Module):
         y_pred = self.softmax(h2)
         return y_pred
 
-class Brain3(torch.nn.Module):
+class BrainDQN(torch.nn.Module):
     """
-    Update Brain2 to include some convolutions on the wall and danger chnnels
-    to sense features like impasses and passages.
+    Try training the monkey with reinforcement learning.
+    This class approximates quality the function Q.
     """
-    pass
+    def __init__(self):
+        """
+        Initialize the structure of the neural net. We have the standard
+        11*11*6+1=727 size for the state vector and 5 for the action vector.
+        The output is of course size 1.
+
+        To begin with, we will have three hidden layers of length 50, 30,
+        and 10.
+        """
+        # Initialize for parent class
+        super(BrainDQN, self).__init__()
+        # Count the number of blocks in vision
+        vision = [x.count(1) for x in Grid.SIGHT]
+        vision = sum(vision)
+        # Calculate input size
+        inputSize = vision*len(Roomgen.BLOCKTYPES) + 1 + len(Roomgen.WASD)
+        self.l1 = torch.nn.Linear(inputSize, 50)
+        self.l2 = torch.nn.Linear(50, 30)
+        self.l3 = torch.nn.Linear(30, 10)
+        self.l4 = torch.nn.Linear(10, 1)
+        # Define the ReLU function
+        self.relu = torch.nn.ReLU()
+
+    def forward(self, s, a):
+        """
+        This calculates the reward for a given state and action.
+        State is taken to be a 1-tensor and a is a 1-tensor as well
+
+        Args:
+            s: The state vector.
+            a: The action.
+        """
+        h = self.relu(self.l1(torch.cat((s,a), -1)))
+        h = self.relu(self.l2(h))
+        h = self.relu(self.l3(h))
+        h = self.relu(self.l4(h))
+        return h
+
+    def maxa(self, s):
+        """
+        This returns the action that will maximize the quality from a,
+        given state. Does not factor into gradient calculations.
+
+        Args:
+            s: The state of the system.
+        Returns:
+            0: The action to do.
+        """
+        # Turn off autograd
+        with torch.no_grad():
+            # Check all the possibilities for movement
+            a = torch.eye(len(Roomgen.WASD))
+            # Make copies of the state for each test
+            sCopies = torch.empty(len(Roomgen.WASD), len(s))
+            for i in range(len(sCopies)):
+                sCopies[i] = s*1
+            print(sCopies[:,:5])
+            print(a)
+            Q = self.forward(sCopies, a)
+            # Maximize Q with respect to a
+            maxIndex = int(Q.max(0)[1])
+            # Return the action corresponding to this
+            return a[maxIndex]
+
+    def pi(self, s, epsilon):
+        """
+        This is the policy for the brain that returns the action that
+        maximizes the reward.
+        This does not factor into the gradient calculations.
+
+        Args:
+            s: The state of the system.
+            epsilon: The threshold to do a random action. Random actions are
+                done a proportion of epsilon of the time.
+        returns:
+            0: The action to do.
+        """
+        # Turn off autograd
+        with torch.no_grad():
+            # Check if we will be doing a random movement
+            if (torch.rand(1) <= epsilon) == 1:
+                # We rolled a random number less than epsilon, so we should
+                # take a random move
+                a = torch.eye(len(Roomgen.WASD))
+                randomIndex = int(torch.randint(len(eye),(1,)))
+                return a[randomIndex]
+            else:
+                return self.maxa(s)
+
+

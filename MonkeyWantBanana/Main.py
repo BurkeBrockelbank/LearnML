@@ -33,34 +33,42 @@ roomStart = Roomgen.abstract(roomStartPicture)
 
 
 # Instantiate brain
-brain = Brain.Brain2()
+brain = Brain.BrainDQN()
+
+##########
+
+s = torch.tensor([19.0,0,1,0,0,0,0,0,1,0,0,0,0,0,1,0,0,0,0,0,1,0,0,0,0,0,1,0,0,0,0,0,1,0,0,0,0,0,1,0,0,0,0,0,1,0,0,0,0,0,1,0,0,0,0,0,1,0,0,0,0,0,1,0,0,0,0,0,1,0,0,0,0,0,1,0,0,0,0,0,1,0,0,0,0,0,1,0,0,0,0,0,1,0,0,0,0,0,1,0,0,0,0,0,1,0,0,0,0,0,1,0,0,0,0,0,1,0,0,0,0,0,1,0,0,0,0,0,1,0,0,0,0,0,1,0,0,0,0,0,1,0,0,0,0,0,1,0,0,0,0,0,1,0,0,0,0,0,1,0,0,0,0,0,1,0,0,0,0,0,1,0,0,0,0,0,1,0,0,0,0,0,1,0,0,0,0,0,1,0,0,0,0,0,1,0,0,0,0,0,1,0,0,0,0,0,1,0,0,0,0,0,1,0,0,0,0,0,1,0,0,0,0,0,1,0,0,0,0,0,1,0,0,0,0,0,1,0,0,0,0,0,1,0,0,0,0,0,1,0,0,0,0,0,1,0,0,0,0,0,1,0,0,0,0,0,1,0,0,0,0,0,1,0,0,0,0,0,1,0,0,0,0,0,1,0,0,0,0,0,1,0,0,0,0,0,1,0,0,0,0,0,1,0,0,0,0,0,1,0,0,0,0,0,1,0,0,0,0,0,1,0,0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0,0,0,1,0,0,0,0,0,1,0,0,0,0,0,1,0,0,0,0,0,1,0,0,0,0,1,0,0,0,0,0,0,1,0,0,0,0,0,1,0,0,0,0,0,1,0,0,0,0,0,1,0,0,0,0,0,1,0,0,0,0,0,1,0,0,0,0,0,1,0,0,0,0,0,1,0,0,0,0,0,1,0,0,0,0,0,1,0,0,0,0,0,1,0,0,0,0,0,1,0,0,0,0,0,1,0,0,0,0,0,1,0,0,0,0,0,1,0,0,0,0,0,1,0,0,0,0,0,1,0,0,0,0,0,1,0,0,0,0,0,1,0,0,0,0,0,0,1,0,0,0,0,1,0,0,0,0,0,1,0,0,0,0,0,1,0,0,0,0,0,1,0,0,0,0,0,1,0,0,0,0,0,1,0,0,0,0,0,1,0,0,0,0,0,1,0,0,0,0,0,1,0,0,0,0,0,1,0,0,0,0,0,1,0,0,0,0,0,1,0,0,0,0,0,1,0,0,0,0,0,1,0,0,0,0,0,1,0,0,0,0,0,1,0,0,0,0,0,1,0,0,0,0,0,1,0,0,0,1,0,0,0,0,0,1,0,0,0,0,0,1,0,0,0,0,0,1,0,0,0,0,0,1,0,0,0,0,0,1,0,0,0,0,0,1,0,0,0,0,0,1,0,0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0,0,0,1,0,0,0,0,0,1,0,0,0,0,0,1,0,0,0,0,0,1,0,0,0,0,0,1,0,0,0,0,0,1,0,0,0,0,0,1,0,0,0,0,0,1,0,0,0,0,0,1,0,0,0,0,0,1,0,0,0,1,0,0,0,0,0,0,0,1,0,0])
+brain.pi(s)
+
+##########
+
 
 # # Load brain from permanent memory
 # brain.load_state_dict(torch.load('brainsave.txt'))
 
 
-# Train the monkey
-for ii in range(1):
-	learningRate = 1e-2
-	epochs = 10
-	prediction, loss, reportRecord = Trainer.train(brain, 'Data1111.txt', \
-						epochs, lr=learningRate, reports=3, quiet=False)
+# # Train the monkey
+# for ii in range(1):
+# 	learningRate = 1e-2
+# 	epochs = 10
+# 	prediction, loss, reportRecord = Trainer.train(brain, 'Data1111.txt', \
+# 						epochs, lr=learningRate, reports=3, quiet=False)
 
-	# Save the brain to permanent memory
-	torch.save(brain.state_dict(), 'brainsave.txt')
+# 	# Save the brain to permanent memory
+# 	torch.save(brain.state_dict(), 'brainsave.txt')
 
-	# Save the report record
-	outF = open('report.txt', 'a')
-	outF.write(str(reportRecord))
-	outF.write('\n')
-	outF.close()
-	# Load the old reports
-	toShow = Trainer.loadRecords('report.txt')
-	# Plot the report record
-	plt.plot(*zip(*toShow))
-	plt.savefig('./img/brain2.png')
-	plt.show()
-	plt.clf()
+# 	# Save the report record
+# 	outF = open('report.txt', 'a')
+# 	outF.write(str(reportRecord))
+# 	outF.write('\n')
+# 	outF.close()
+# 	# Load the old reports
+# 	toShow = Trainer.loadRecords('report.txt')
+# 	# Plot the report record
+# 	plt.plot(*zip(*toShow))
+# 	plt.savefig('./img/brain2.png')
+# 	plt.show()
+# 	plt.clf()
 
 
 # # Generate training data

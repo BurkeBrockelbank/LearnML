@@ -10,6 +10,7 @@ import Brain
 import Exceptions
 from random import randrange
 import torch
+import math
 
 def generateTrainingDataSporadic(N, filePath,abstractMap):
     # This is a creator for generating data from the map
@@ -191,3 +192,86 @@ def loadRecords(path):
         return records
     else:
         return sum(records)
+
+def trainDQN(N, g, gamma, epsilon0, epsilonF, nEpsilon):
+    """
+    This function trains a monkey with a brain of class BrainDQN
+    on a grid.
+
+    The DQN algorihm:
+    1) Get the policy's action.
+    2) Get the consequent state (move the monkey).
+    3) Get the immediate reward from the grid.
+    4) Calculate the loss
+        a) Calculate the quality of the move undertaken Q(s,a).
+        b) Calculate the max_a Q(s',a) where s' is the consequent
+           state of performing a from the state s.
+        c) delta = Q(s,a) - r - gamma*max_a Q(s', a)
+           where r is the immediate loss measured from the system.
+        d) Loss is the Huber loss (smooth L1 loss) of delta.
+
+
+    Args:
+        N: The number of iterations of training to do.
+        g: The grid containing a monkey containing a brain of class
+            BrainDQN.
+        gamma: The discount for the Bellman equation.
+        epsilon0: The initial value for epsilon for the epsilon-greedy
+            policy.
+        epsilonF: The final value for epsilon.
+        nEpsilon: The decay rate for epsilon.
+    """
+    # Define the optimizer
+    optimizer = optim.RMSprop(g.monkeys[0].brain.parameters())
+    # Iterate N times
+    for n in range(N):
+        # 1) Get the policy's action.
+        # We will first compute epsilon
+        epsilon = epsilonF + (epsilon0-epsilonF)*math.exp(n/nEpsilon)
+        # Next, we need to first get the state.
+        # Start by getting everything the monkey can see.
+        surroundings, _ = g.surroundingVector(g.monkeys[0].pos)
+        # Next we need to get the monkey's food level.
+        food = torch.tensor([g.monkeys[0].food])
+        # Compile these into a state vector.
+        s = torch.cat((food, surroundings))
+        # Compute the policy's best action.
+        a = g.monkeys[0].brain.pi(s, epsilon)
+        # 2) Get the consequent state sPrime
+        # First we need to convert the action to its string form so
+        # we can interface with the grid.
+        actionString = Roomgen.WASD[int(a.max(0)[1])]
+        # Move the monkey.
+        g.tick(control='manual', directions=[actionString])
+        # Get the new state, starting with vision
+        surroundingsPrime, _ = g.surroundingVector(g.monkeys[0].pos)
+        # Next we need to get the monkey's food level.
+        foodPrime = torch.tensor([g.monkeys[0].food])
+        # Compile these into a state vector.
+        sPrime = torch.cat((foodPrime, surroundingsPrime))
+
+    # 3) Determine the immediate reward.
+    # If the monkey dies, give some crazy low reward
+    if g.monkeys[0].dead:
+        r = -1000000000000000
+    else:
+        # Otherwise the immediate reward is just the change in food.
+        r = foodPrime - food
+
+    # 4) Calculate the loss
+    # a) Find out what quality is assigned to the move that was taken.
+    Qsa = g.monkeys[0].brain(s, a)
+    # b) Calculate max_a Q(s', a)
+    maxa = g.monkeys[0].brain.maxa(sPrime)
+    maxaQsPrimea = g.monkeys[0].brain(sPrime, maxa)
+    # c) Calculate  delta
+    delta = Qsa - r - gamma*maxaQsPrimea
+    # d) Calculate loss
+    loss = torch.nn.functional.smooth_l1_loss(delta, torch.zeros(1))
+
+    # Optimize the model
+    optimizer.zero_grad()
+    loss.backward()
+    for param in g.monkeys[0].brain.parameters():
+        param.grad.data.clamp_(-1,1)
+    optimizer.step

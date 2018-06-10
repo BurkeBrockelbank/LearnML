@@ -61,21 +61,33 @@ class Grid:
         self.height = len(room)
         self.turnCount = 0
 
-    def tick(self, trainingData = False, manualControl = False, wait = False):
+    def tick(self, trainingData = False, control='manual', wait = False,
+        directions=[], quiet = False):
         """
         Ticking function for a grid object moves all the monkeys, distributes
         bananas, and kills monkeys if it needs to.
+
+        Args:
+            control: Must be either 'user', 'manual', or 'auto'. If control is 'manual',
+                directions must be populated with string directions of the same length
+                as the number of monkeys.
+            directions: The directions monkeys should go in if control is manual.
+
+        Raises:
+            ControlError: Thrown in the case that the control argument is not valid.
         """
         print('TURN', self.turnCount)
         for n, monkey in enumerate(self.monkeys):
-            print('M',n,' B',monkey.food,sep='')
+            if not quiet:
+                print('M',n,' B',monkey.food,sep='')
             # Let the monkeys see
             p = monkey.pos
             surrVec, surrMap = self.surroundingVector(p, putMonkey=True)
             # Print the surroundingsMap
-            print(Roomgen.concretize(surrMap,indeces=True,indexOffset=\
-                (p[0]-len(SIGHT)//2,p[1]-len(SIGHT)//2)))
-            if manualControl:
+            if not quiet:
+                print(Roomgen.concretize(surrMap,indeces=True,indexOffset=\
+                    (p[0]-len(SIGHT)//2,p[1]-len(SIGHT)//2)))
+            if control == 'user':
                 # Ask the user for their input
                 needInput = True
                 while needInput:
@@ -84,15 +96,29 @@ class Grid:
                         needInput = False
                     else:
                         print('Input must be w, a, s, d, or space.')
-            else:
+            elif control == 'auto':
                 # Automatic control
-                x = [float(monkey.food)]+list(surrVec)
+                x = torch.cat((torch.FloatTensor([monkey.food]),surrVec))
                 x = torch.tensor(x)
                 direction = monkey.tryMove(x)
-                if wait:
-                    input('>>>'+direction)
-                else:
-                    print('>>>'+direction)
+                if not quiet:
+                    if wait:
+                        input('>>>'+direction)
+                    else:
+                        print('>>>'+direction)
+            elif control == 'manual'
+                try:
+                    direction = directions[n]
+                except IndexError:
+                    raise Exceptions.ControlError 'Directions were not given to monkey ' +str(n)
+                if not quiet:
+                    if wait:
+                        input('>>>'+direction)
+                    else:
+                        print('>>>'+direction)
+            else:
+                raise Exception.ControlError 'Argument control must be in [\'user\', \'manual\', '+\
+                                            '\'auto\'] but was given as,' + str(control)
             # We have the direction, so check if the monkey can move that way
             monkey.move(direction)
             if self.room[monkey.pos[0]][monkey.pos[1]] == Roomgen.ABSTRACTIONS['#']:
