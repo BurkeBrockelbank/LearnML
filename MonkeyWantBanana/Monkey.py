@@ -85,7 +85,7 @@ class MonkeyDQN(Monkey):
         # Epsilon initialized to -1 guarantees that the policy will never
         # choose a random move.
         self.epsilon = -1.0
-        Monkey.__init__(self, brainDQN):
+        Monkey.__init__(self, brainDQN)
 
 
     def tryMove(self, s):

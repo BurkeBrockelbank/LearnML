@@ -193,7 +193,7 @@ def loadRecords(path):
     else:
         return sum(records)
 
-def trainDQN(N, g, gamma, epsilon0, epsilonF, nEpsilon):
+def trainDQN(N, g, gamma, epsilon0, epsilonF, nEpsilon, memoryLength, lr = 0.01, loud = False):
     """
     This function trains a monkey with a brain of class BrainDQN
     on a grid.
@@ -220,58 +220,112 @@ def trainDQN(N, g, gamma, epsilon0, epsilonF, nEpsilon):
             policy.
         epsilonF: The final value for epsilon.
         nEpsilon: The decay rate for epsilon.
+        lr: Default 0.01. The learning rate.
+        loud: Default False. If true, prints the game screen, and the loss
+        for each iteration.
     """
     # Define the optimizer
-    optimizer = optim.RMSprop(g.monkeys[0].brain.parameters())
+    optimizer = torch.optim.RMSprop(g.monkeys[0].brain.parameters(), lr=lr)
+    totalReward = 0
+    # Define the memory
+    memory = []
+    # Calculate state for the first time
+    surroundingsPrime, _ = g.surroundingVector(g.monkeys[0].pos)
+    # Next we need to get the monkey's food level.
+    foodPrime = torch.tensor([g.monkeys[0].food])
+    # Compile these into a state vector.
+    s1Prime = torch.cat((food, surroundings))
+    s1Prime = s1.float()
+    # If the memory is empty, just set the monkey to think it has
+    # been sitting here for a few turns.
+    for i in range(memoryLength):
+        memory.append(s1Prime)
+    sPrime = torch.cat(tuple(memory))
+
     # Iterate N times
     for n in range(N):
         # 1) Get the policy's action.
         # We will first compute epsilon
-        epsilon = epsilonF + (epsilon0-epsilonF)*math.exp(n/nEpsilon)
-        # Next, we need to first get the state.
-        # Start by getting everything the monkey can see.
-        surroundings, _ = g.surroundingVector(g.monkeys[0].pos)
-        # Next we need to get the monkey's food level.
-        food = torch.tensor([g.monkeys[0].food])
-        # Compile these into a state vector.
-        s = torch.cat((food, surroundings))
+        epsilon = epsilonF + (epsilon0-epsilonF)*math.exp(-n/nEpsilon)
+        # Next, we need to first get the state. This
+        # comes from the previous iteration
+        s = sPrime
         # Compute the policy's best action.
-        a = g.monkeys[0].brain.pi(s, epsilon)
+        a = g.monkeys[0].brain.pi(s, epsilon, loud=loud)
         # 2) Get the consequent state sPrime
         # First we need to convert the action to its string form so
         # we can interface with the grid.
         actionString = Roomgen.WASD[int(a.max(0)[1])]
         # Move the monkey.
-        g.tick(control='manual', directions=[actionString])
+        if loud:
+            quiet = False
+        else:
+            quiet = n%100 != 0
+        g.tick(control='manual', directions=[actionString], wait=True,
+            quiet = quiet, invincible=True)
         # Get the new state, starting with vision
         surroundingsPrime, _ = g.surroundingVector(g.monkeys[0].pos)
         # Next we need to get the monkey's food level.
         foodPrime = torch.tensor([g.monkeys[0].food])
         # Compile these into a state vector.
-        sPrime = torch.cat((foodPrime, surroundingsPrime))
+        s1Prime = torch.cat((foodPrime, surroundingsPrime))
+        s1Prime = sPrime.float()
+        # Update the memory
+        memory.append(s)
+        del memory[0]
+        # Get the total state with memory 
+        sPrime = torch.cat(tuple(memory))
 
-    # 3) Determine the immediate reward.
-    # If the monkey dies, give some crazy low reward
-    if g.monkeys[0].dead:
-        r = -1000000000000000
-    else:
-        # Otherwise the immediate reward is just the change in food.
-        r = foodPrime - food
 
-    # 4) Calculate the loss
-    # a) Find out what quality is assigned to the move that was taken.
-    Qsa = g.monkeys[0].brain(s, a)
-    # b) Calculate max_a Q(s', a)
-    maxa = g.monkeys[0].brain.maxa(sPrime)
-    maxaQsPrimea = g.monkeys[0].brain(sPrime, maxa)
-    # c) Calculate  delta
-    delta = Qsa - r - gamma*maxaQsPrimea
-    # d) Calculate loss
-    loss = torch.nn.functional.smooth_l1_loss(delta, torch.zeros(1))
+        # 3) Determine the immediate reward.
+        # If the monkey dies, give some crazy low reward
+        if g.monkeys[0].dead:
+            r = torch.tensor(-100.0)
+            # Need to recussitate the monkey
+            g.monkeys[0].dead = False
+            # Give it a banana for free if it' died of hunger
+            if g.monkeys[0].food < 0:
+                g.monkeys[0].eat(1)
+        else:
+            # Otherwise the immediate reward is just the change in food.
+            r = foodPrime - food
+            # Make sure this is a float
+            r = r.float()
+        # Add the immediate reward to the total reward counter
+        totalReward += float(r.view(1)[0])
 
-    # Optimize the model
-    optimizer.zero_grad()
-    loss.backward()
-    for param in g.monkeys[0].brain.parameters():
-        param.grad.data.clamp_(-1,1)
-    optimizer.step
+        # 4) Calculate the loss
+        # a) Find out what quality is assigned to the move that was taken.
+        # Note: The tensors need to be reshaped from size (0,n) to size (1,n)
+        Qsa = g.monkeys[0].brain(s.view(1,len(s)), a.view(1,len(a)))
+        # Recast Q(s, a) to a 1-tensor
+        Qsa = Qsa.view(1)
+        # b) Calculate maxa = argmax_a Q(s', a)
+        maxa = g.monkeys[0].brain.maxa(sPrime)
+        # Calculate max_a Q(s', a)
+        maxaQsPrimea = g.monkeys[0].brain(sPrime.view(1,len(sPrime)), \
+            maxa.view(1,len(maxa)))
+        # Cast max_a Q(s', a) to a 1-tensor
+        maxaQsPrimea = maxaQsPrimea.view(1)
+        # c) Calculate  delta
+        delta = Qsa - r - gamma*maxaQsPrimea
+        if loud or not quiet:
+            # Display the delta value
+            print('delta = Q(s,a) - r - gamma * max_a Q(s\', a)', \
+                Qsa.item(), '-', r.item(), '-', gamma, '*', maxaQsPrimea.item(), \
+                '=', delta.item())
+            # Display the average reward per turn to date.
+            print(totalReward/(n+1), 'rpt')
+            # print('s', s[:20])
+            # print('a', a)
+            # print('s\'', sPrime[:20])
+            # print('max_a', a)
+        # d) Calculate loss
+        loss = torch.nn.functional.smooth_l1_loss(delta, torch.zeros(1))
+
+        # Optimize the model
+        optimizer.zero_grad()
+        loss.backward()
+        for param in g.monkeys[0].brain.parameters():
+            param.grad.data.clamp_(-1,1)
+        optimizer.step()

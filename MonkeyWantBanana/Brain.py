@@ -115,11 +115,12 @@ class BrainDQN(torch.nn.Module):
     Try training the monkey with reinforcement learning.
     This class approximates quality the function Q.
     """
-    def __init__(self):
+    def __init__(self, memoryLength):
         """
         Initialize the structure of the neural net. We have the standard
-        11*11*6+1=727 size for the state vector and 5 for the action vector.
-        The output is of course size 1.
+        11*11*6+1=727 size for the state vector of a single turn. The input S
+        will be multiple times this length to account for memory. The action
+        vector is size 5. The output is of course size 1.
 
         To begin with, we will have three hidden layers of length 50, 30,
         and 10.
@@ -130,27 +131,34 @@ class BrainDQN(torch.nn.Module):
         vision = [x.count(1) for x in Grid.SIGHT]
         vision = sum(vision)
         # Calculate input size
-        inputSize = vision*len(Roomgen.BLOCKTYPES) + 1 + len(Roomgen.WASD)
-        self.l1 = torch.nn.Linear(inputSize, 50)
-        self.l2 = torch.nn.Linear(50, 30)
-        self.l3 = torch.nn.Linear(30, 10)
+        inputSize = (vision*len(Roomgen.BLOCKTYPES) + 1 + len(Roomgen.WASD))*memoryLength
+        self.l1 = torch.nn.Linear(inputSize, 20)
+        self.l2 = torch.nn.Linear(20, 20)
+        self.l3 = torch.nn.Linear(20, 10)
         self.l4 = torch.nn.Linear(10, 1)
         # Define the ReLU function
         self.relu = torch.nn.ReLU()
+        self.sigmoid = torch.nn.Sigmoid()
+        # Initialize weights
+        torch.nn.init.xavier_uniform_(self.l1.weight.data)
+        torch.nn.init.xavier_uniform_(self.l2.weight.data)
+        torch.nn.init.xavier_uniform_(self.l3.weight.data)
+        torch.nn.init.xavier_uniform_(self.l4.weight.data)
 
     def forward(self, s, a):
         """
         This calculates the reward for a given state and action.
-        State is taken to be a 1-tensor and a is a 1-tensor as well
+        State is taken to be shape (1,N) and a is shape (1,N) as well
+        for some N
 
         Args:
             s: The state vector.
             a: The action.
         """
         h = self.relu(self.l1(torch.cat((s,a), -1)))
-        h = self.relu(self.l2(h))
-        h = self.relu(self.l3(h))
-        h = self.relu(self.l4(h))
+        h = self.sigmoid(self.l2(h))
+        h = self.sigmoid(self.l3(h))
+        h = self.l4(h)
         return h
 
     def maxa(self, s):
@@ -171,15 +179,13 @@ class BrainDQN(torch.nn.Module):
             sCopies = torch.empty(len(Roomgen.WASD), len(s))
             for i in range(len(sCopies)):
                 sCopies[i] = s*1
-            print(sCopies[:,:5])
-            print(a)
             Q = self.forward(sCopies, a)
             # Maximize Q with respect to a
             maxIndex = int(Q.max(0)[1])
             # Return the action corresponding to this
             return a[maxIndex]
 
-    def pi(self, s, epsilon):
+    def pi(self, s, epsilon, loud=False):
         """
         This is the policy for the brain that returns the action that
         maximizes the reward.
@@ -189,6 +195,7 @@ class BrainDQN(torch.nn.Module):
             s: The state of the system.
             epsilon: The threshold to do a random action. Random actions are
                 done a proportion of epsilon of the time.
+            loud: Default False. If True, reports when the movement is random.
         returns:
             0: The action to do.
         """
@@ -199,9 +206,13 @@ class BrainDQN(torch.nn.Module):
                 # We rolled a random number less than epsilon, so we should
                 # take a random move
                 a = torch.eye(len(Roomgen.WASD))
-                randomIndex = int(torch.randint(len(eye),(1,)))
+                randomIndex = int(torch.randint(len(a),(1,)))
+                if loud:
+                    print('Random movement (',round(epsilon*100),'%)', sep='')
                 return a[randomIndex]
             else:
+                if loud:
+                    print('Delibe movement (',round((1-epsilon)*100),'%)', sep='')
                 return self.maxa(s)
 
 

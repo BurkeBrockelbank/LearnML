@@ -62,7 +62,7 @@ class Grid:
         self.turnCount = 0
 
     def tick(self, trainingData = False, control='manual', wait = False,
-        directions=[], quiet = False):
+        directions=[], quiet = False, invincible = False):
         """
         Ticking function for a grid object moves all the monkeys, distributes
         bananas, and kills monkeys if it needs to.
@@ -72,11 +72,13 @@ class Grid:
                 directions must be populated with string directions of the same length
                 as the number of monkeys.
             directions: The directions monkeys should go in if control is manual.
+            invincible: Default False. If true, monkeys are not removed after death.
 
         Raises:
             ControlError: Thrown in the case that the control argument is not valid.
         """
-        print('TURN', self.turnCount)
+        if not quiet:
+            print('TURN', self.turnCount)
         for n, monkey in enumerate(self.monkeys):
             if not quiet:
                 print('M',n,' B',monkey.food,sep='')
@@ -106,19 +108,19 @@ class Grid:
                         input('>>>'+direction)
                     else:
                         print('>>>'+direction)
-            elif control == 'manual'
+            elif control == 'manual':
                 try:
                     direction = directions[n]
                 except IndexError:
-                    raise Exceptions.ControlError 'Directions were not given to monkey ' +str(n)
+                    raise Exceptions.ControlError('Directions were not given to monkey ' +str(n))
                 if not quiet:
                     if wait:
                         input('>>>'+direction)
                     else:
                         print('>>>'+direction)
             else:
-                raise Exception.ControlError 'Argument control must be in [\'user\', \'manual\', '+\
-                                            '\'auto\'] but was given as,' + str(control)
+                raise Exception.ControlError('Argument control must be in [\'user\', \'manual\', '+\
+                                            '\'auto\'] but was given as,' + str(control))
             # We have the direction, so check if the monkey can move that way
             monkey.move(direction)
             if self.room[monkey.pos[0]][monkey.pos[1]] == Roomgen.ABSTRACTIONS['#']:
@@ -142,7 +144,7 @@ class Grid:
             # The monkey now expends food if it has it
             monkey.tick()
             # Clean up dead monkies
-            if monkey.dead:
+            if monkey.dead and not invincible:
                 print('Monkey', n,'is dead')
                 del self.monkeys[n]
         self.turnCount += 1
@@ -170,7 +172,7 @@ class Grid:
                             for monkey in self.monkeys:
                                 if monkey.pos == (rr,cc): # There is a monkey here
                                     thisEl = Roomgen.ABSTRACTIONS['m']
-                        thisRow.append(self.room[rr][cc])
+                        thisRow.append(thisEl)
                     else:
                         thisRow.append(Roomgen.ABSTRACTIONS['#'])
             else:
