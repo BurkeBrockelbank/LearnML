@@ -9,7 +9,7 @@ class Monkey:
         self.food = 20
         self.dead = False
         self.pos = (0,0)
-        self.foodPerEat = 10
+        self.foodPerEat = 30
         self.foodPerTurn = 1
         self.brain = brain
 

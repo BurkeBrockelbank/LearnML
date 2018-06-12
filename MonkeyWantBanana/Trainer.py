@@ -193,6 +193,82 @@ def loadRecords(path):
     else:
         return sum(records)
 
+def trainDQNSupervised(brain, filePath, N, memoryLength, lr = 1e-2, reports = 10, quiet = True):
+    """
+    Trains a brain set up for deep Q learning in a supervised way with the test data.
+
+    Args:
+        brain: The brain to be trained.
+        filePath: The path to the file with the training data
+        N: Number of epochs.
+        memoryLength: The number of frames of memory to keep.
+        lr: Default 0.01. Learning rate.
+        reports: The number of times to report the progress
+
+    Returns:
+        1: A list of all the loss functions (size N)
+
+    Raises:
+        FileNotFoundError: If filePath does not point to a valid file.
+        SyntaxError: If the file is not formatted correctly.
+        DataShapeError: If the training data does not properly fit the brain.
+    """
+
+    # Determine the remainder at which we want to print the iteration number
+    if reports != 0:
+        reportEvery = N//reports
+    # Create a list for the reports
+    reportList = []
+
+    # Open the data file and read the data
+    inF = open(filePath, 'r')
+    dataLines = []
+    for line in inF:
+        dataLines.append(eval(line.rstrip()))
+    inF.close()
+    # Put the data into input (x) and output (y) 2d tensors. Each row is one
+    # data point (sight+food+movement)
+    x = []
+    y = []
+    for tup in dataLines:
+        y.append(tup[0])
+        x.append([tup[1]]+tup[2])
+    x = torch.tensor(x)
+
+    ss = []
+    # We need to group the training data into sets with memory.
+    for i in range(memoryLength, x.size()[0]):
+        thisMemory = x[i-memoryLength:i]
+        ss.append(torch.cat(tuple(thisMemory)))
+
+    print(ss[0])
+
+    return None
+    # y is a list of 1-hot lists. Let's switch this over to labels
+    y1 = torch.tensor([foo.index(1) for foo in y])
+    # Also get y
+    y = torch.FloatTensor(y)
+
+    # Define the loss function
+    criterion = torch.nn.CrossEntropyLoss()
+    # Create an optimizer
+    optimizer = torch.optim.SGD(brain.parameters(), lr)
+    for epoch in range(N):
+        # Forward pass: Compute predicted y by passing x to the model
+        y_pred = brain(x)
+        # Compute and print loss
+        loss = criterion(y_pred, y1)
+        if reports != 0:
+            if (N-epoch-1)%(reportEvery) == 0:
+                if not quiet:
+                    print(epoch, loss.item())
+                reportList.append((epoch, loss.item()))
+        # Zero gradients, perform a backward pass, and update the weights.
+        optimizer.zero_grad()
+        loss.backward()
+        optimizer.step()
+    return y_pred, loss, reportList
+
 def trainDQN(N, g, gamma, epsilon0, epsilonF, nEpsilon, memoryLength,
     lr = 0.01, loud = False, showEvery=1):
     """
@@ -287,13 +363,13 @@ def trainDQN(N, g, gamma, epsilon0, epsilonF, nEpsilon, memoryLength,
         # 3) Determine the immediate reward.
         # If the monkey dies, give some crazy low reward
         if g.monkeys[0].dead:
-            r = torch.tensor(-100.0)
+            r = torch.tensor(-10000.0)
             # Need to recussitate the monkey
             g.monkeys[0].dead = False
             # If the monkey died of hunger, we won't penalize it too
             # much right now.
             if charity:
-                r = torch.tensor(-1.0)
+                r = torch.tensor(-50.0)
         else:
             # Otherwise the immediate reward is just the change in food.
             r = foodPrime - food
@@ -320,7 +396,7 @@ def trainDQN(N, g, gamma, epsilon0, epsilonF, nEpsilon, memoryLength,
         if loud or n%showEvery == 0:
             print(n,'/',N,sep='')
             # Display the delta value
-            print('delta = Q(s,'+actionString+') - r - gamma * max_a Q(s\', a)', \
+            print('delta = Q(s,'+actionString+') - r - gamma * max_a Q(s\', a) =', \
                 Qsa.item(), '-', r.item(), '-', gamma, '*', maxaQsPrimea.item(), \
                 '=', delta.item())
             # Display the average reward per turn to date.
