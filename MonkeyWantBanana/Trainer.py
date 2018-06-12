@@ -193,7 +193,7 @@ def loadRecords(path):
     else:
         return sum(records)
 
-def trainDQNSupervised(brain, filePath, N, memoryLength, lr = 1e-2, reports = 10, quiet = True):
+def trainDQNSupervised(brain, filePath, N, memoryLength, gamma, lr = 1e-2, reports = 10, quiet = True):
     """
     Trains a brain set up for deep Q learning in a supervised way with the test data.
 
@@ -202,6 +202,7 @@ def trainDQNSupervised(brain, filePath, N, memoryLength, lr = 1e-2, reports = 10
         filePath: The path to the file with the training data
         N: Number of epochs.
         memoryLength: The number of frames of memory to keep.
+        gamma: The discount for calculating the quality of a move.
         lr: Default 0.01. Learning rate.
         reports: The number of times to report the progress
 
@@ -229,25 +230,46 @@ def trainDQNSupervised(brain, filePath, N, memoryLength, lr = 1e-2, reports = 10
     # Put the data into input (x) and output (y) 2d tensors. Each row is one
     # data point (sight+food+movement)
     x = []
-    y = []
+    a = []
     for tup in dataLines:
-        y.append(tup[0])
+        a.append(tup[0])
         x.append([tup[1]]+tup[2])
     x = torch.tensor(x)
+    a = torch.tensor(a)
 
-    ss = []
     # We need to group the training data into sets with memory.
+    sValues = []
     for i in range(memoryLength, x.size()[0]):
         thisMemory = x[i-memoryLength:i]
-        ss.append(torch.cat(tuple(thisMemory)))
+        sValues.append(torch.cat(tuple(thisMemory)).float())
+    s = torch.stack(sValues)
 
-    print(ss[0])
+    # Calculate the immediate reward of each move
+    rValues = [x[i][0]-x[i-1][0] for i in range(memoryLength, x.size()[0])]
+    # Calculate the best guess for the quality of the move
+    QValues = [rValues[-1]]
+    for r in rValues[-2::-1]:
+        QValues.append(gamma*QValues[-1]+r)
+    QValues = QValues[::-1]
+    # Find out where to stop (we don't want to train uless we have a quality
+    # value within about 10% of what is actually true)
+    turnsToCut = math.ceil(-1.0/math.log10(gamma))
+    QValues = QValues[:-turnsToCut]
+    Q = torch.stack(QValues)
 
+    # We can cut away the unused turns of y
+    a = a[memoryLength-1:-turnsToCut-1]
+    # Cut away the unused turns of the states
+    s = s[:-turnsToCut]
+    print(a.size())
+    print(a[:6])
+    print(s.size())
+    print(s[:6])
+    print(torch.stack(rValues).size())
+    print(torch.stack(rValues)[:10])
+    print(Q.size())
+    print(Q[:10])
     return None
-    # y is a list of 1-hot lists. Let's switch this over to labels
-    y1 = torch.tensor([foo.index(1) for foo in y])
-    # Also get y
-    y = torch.FloatTensor(y)
 
     # Define the loss function
     criterion = torch.nn.CrossEntropyLoss()

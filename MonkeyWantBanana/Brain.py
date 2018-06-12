@@ -180,7 +180,6 @@ class BrainDQN(torch.nn.Module):
             for i in range(len(sCopies)):
                 sCopies[i] = s*1
             Q = self.forward(sCopies, a)
-            print('Brain.py Q', Q)
             # Maximize Q with respect to a
             maxIndex = int(Q.max(0)[1])
             # Return the action corresponding to this

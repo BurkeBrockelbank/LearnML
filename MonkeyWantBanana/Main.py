@@ -32,40 +32,44 @@ roomStart = Roomgen.abstract(roomStartPicture)
 
 # Define number of turns of memory
 memoryLength = 5
+# Define discount factor
+gamma = 0.6
 # Instantiate brain
 brain = Brain.BrainDQN(memoryLength)
 # Instantiate the monkey
 mitch = Monkey.MonkeyDQN(brain)
 g = Grid.Grid([mitch],[(13,18)],roomStart)
 
-# Train the monkey in a supervised way
-for i in range(30):
-    # tick
-    g.tick(control='user')
-    # get state
-    surroundings, _ = g.surroundingVector(g.monkeys[0].pos)
-    food = torch.tensor([g.monkeys[0].food])
-    s1= torch.cat((food, surroundings))
-    s1 = s1.float()
-    if i == 0:
-        memory = []
-        for j in range(5):
-            memory.append(s1)
-    else:
-        memory.append(s1)
-        del memory[0]
-    s = torch.cat(tuple(memory))
-    # Get qualities
-    Qsa = g.monkeys[0].brain.maxa(s)
 
 # # Load brain from permanent memory
 # brain.load_state_dict(torch.load('brainsave.txt'))
 
-# # Train the monkey
-# Trainer.trainDQN(500000, g, 0.9, 0.2, 0.2, 5000, memoryLength, lr=0.01,loud=True,showEvery=1000)
+# Train the monkey in a supervised way
+Trainer.trainDQNSupervised(brain, 'Data1111.txt', 3000, memoryLength, gamma, \
+    lr = 1e-2, reports = 10, quiet = False)
+    # tick
+    # g.tick(control='user')
+    # # get state
+    # surroundings, _ = g.surroundingVector(g.monkeys[0].pos)
+    # food = torch.tensor([g.monkeys[0].food])
+    # s1= torch.cat((food, surroundings))
+    # s1 = s1.float()
+    # if i == 0:
+    #     memory = []
+    #     for j in range(5):
+    #         memory.append(s1)
+    # else:
+    #     memory.append(s1)
+    #     del memory[0]
+    # s = torch.cat(tuple(memory))
+    # # Get qualities
+    # Qsa = g.monkeys[0].brain.maxa(s)
 
-# # Save the brain to permanent memory
-# torch.save(brain.state_dict(), 'brainsave.txt')
+# # Train the monkey
+# Trainer.trainDQN(500000, g, gamma, 0.2, 0.2, 5000, memoryLength, lr=0.01,loud=True,showEvery=1000)
+
+# Save the brain to permanent memory
+torch.save(brain.state_dict(), 'brainsave.txt')
 
 
 # # Train the monkey
