@@ -12,20 +12,20 @@ import matplotlib.pyplot as plt
 
 # Start with the basic room
 roomStartPicture = 	'##################################\n'+\
-					'#                      #         #\n'+\
-					'#             b        #     b   #\n'+\
-					'#    b                  d        #\n'+\
-					'#                      #         #\n'+\
+					'#  b                   #  b      #\n'+\
+					'#          d  b        #     b   #\n'+\
+					'#    b   b              d        #\n'+\
+					'#                 b    #         #\n'+\
 					'###########     b      #    d    #\n'+\
 					'#          #           #         #\n'+\
-					'#           #      ########    ###\n'+\
+					'#  b        #      ########    ###\n'+\
 					'#    b           #      #        #\n'+\
-					'#               d                #\n'+\
-					'#              #                 #\n'+\
+					'#          b    d     b        b #\n'+\
+					'#              #         b       #\n'+\
 					'#      d      #    dd      b     #\n'+\
 					'#    b d     #                   #\n'+\
-					'#      d             b   d     ###\n'+\
-					'#               #           ######\n'+\
+					'#      d             b   b     ###\n'+\
+					'#         b     #           ######\n'+\
 					'##################################'
 
 roomStart = Roomgen.abstract(roomStartPicture)
@@ -36,14 +36,16 @@ memoryLength = 5
 brain = Brain.BrainDQN(memoryLength)
 # Instantiate the monkey
 mitch = Monkey.MonkeyDQN(brain)
-g = Grid.Grid([mitch],[(3,3)],roomStart)
+g = Grid.Grid([mitch],[(13,18)],roomStart)
 
-# Train the monkey
-Trainer.trainDQN(50000, g, 0.8, 0.95, 0.05, 500, memoryLength, lr=0.01,loud=True)
-# Save the brain to permanent memory
-torch.save(brain.state_dict(), 'brainsave.txt')
 # # Load brain from permanent memory
 # brain.load_state_dict(torch.load('brainsave.txt'))
+
+# Train the monkey
+Trainer.trainDQN(500000, g, 0.9, 0.8, 0.2, 5000, memoryLength, lr=0.01,loud=False,showEvery=1000)
+
+# Save the brain to permanent memory
+torch.save(brain.state_dict(), 'brainsave.txt')
 
 
 # # Train the monkey

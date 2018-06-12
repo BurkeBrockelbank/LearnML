@@ -193,7 +193,8 @@ def loadRecords(path):
     else:
         return sum(records)
 
-def trainDQN(N, g, gamma, epsilon0, epsilonF, nEpsilon, memoryLength, lr = 0.01, loud = False):
+def trainDQN(N, g, gamma, epsilon0, epsilonF, nEpsilon, memoryLength,
+    lr = 0.01, loud = False, showEvery=1):
     """
     This function trains a monkey with a brain of class BrainDQN
     on a grid.
@@ -223,19 +224,23 @@ def trainDQN(N, g, gamma, epsilon0, epsilonF, nEpsilon, memoryLength, lr = 0.01,
         lr: Default 0.01. The learning rate.
         loud: Default False. If true, prints the game screen, and the loss
         for each iteration.
+        showEvery: Set this to a natural number to show the progress every
+            showEvery iterations.
     """
     # Define the optimizer
     optimizer = torch.optim.RMSprop(g.monkeys[0].brain.parameters(), lr=lr)
     totalReward = 0
-    # Define the memory
-    memory = []
+
     # Calculate state for the first time
     surroundingsPrime, _ = g.surroundingVector(g.monkeys[0].pos)
     # Next we need to get the monkey's food level.
     foodPrime = torch.tensor([g.monkeys[0].food])
     # Compile these into a state vector.
-    s1Prime = torch.cat((food, surroundings))
-    s1Prime = s1.float()
+    s1Prime = torch.cat((foodPrime, surroundingsPrime))
+    s1Prime = s1Prime.float()
+
+    # Define the memory
+    memory = []
     # If the memory is empty, just set the monkey to think it has
     # been sitting here for a few turns.
     for i in range(memoryLength):
@@ -249,6 +254,8 @@ def trainDQN(N, g, gamma, epsilon0, epsilonF, nEpsilon, memoryLength, lr = 0.01,
         epsilon = epsilonF + (epsilon0-epsilonF)*math.exp(-n/nEpsilon)
         # Next, we need to first get the state. This
         # comes from the previous iteration
+        surroundings = surroundingsPrime
+        food = foodPrime
         s = sPrime
         # Compute the policy's best action.
         a = g.monkeys[0].brain.pi(s, epsilon, loud=loud)
@@ -257,25 +264,25 @@ def trainDQN(N, g, gamma, epsilon0, epsilonF, nEpsilon, memoryLength, lr = 0.01,
         # we can interface with the grid.
         actionString = Roomgen.WASD[int(a.max(0)[1])]
         # Move the monkey.
-        if loud:
-            quiet = False
-        else:
-            quiet = n%100 != 0
         g.tick(control='manual', directions=[actionString], wait=True,
-            quiet = quiet, invincible=True)
+            quiet = not loud, invincible=True)
+        # Give the monkey a banana for free if it died of hunger
+        charity = False
+        if g.monkeys[0].food < 0:
+            g.monkeys[0].eat(1)
+            charity = True
         # Get the new state, starting with vision
         surroundingsPrime, _ = g.surroundingVector(g.monkeys[0].pos)
         # Next we need to get the monkey's food level.
         foodPrime = torch.tensor([g.monkeys[0].food])
         # Compile these into a state vector.
         s1Prime = torch.cat((foodPrime, surroundingsPrime))
-        s1Prime = sPrime.float()
+        s1Prime = s1Prime.float()
         # Update the memory
-        memory.append(s)
+        memory.append(s1Prime)
         del memory[0]
         # Get the total state with memory 
         sPrime = torch.cat(tuple(memory))
-
 
         # 3) Determine the immediate reward.
         # If the monkey dies, give some crazy low reward
@@ -283,9 +290,10 @@ def trainDQN(N, g, gamma, epsilon0, epsilonF, nEpsilon, memoryLength, lr = 0.01,
             r = torch.tensor(-100.0)
             # Need to recussitate the monkey
             g.monkeys[0].dead = False
-            # Give it a banana for free if it' died of hunger
-            if g.monkeys[0].food < 0:
-                g.monkeys[0].eat(1)
+            # If the monkey died of hunger, we won't penalize it too
+            # much right now.
+            if charity:
+                r = torch.tensor(-1.0)
         else:
             # Otherwise the immediate reward is just the change in food.
             r = foodPrime - food
@@ -309,9 +317,10 @@ def trainDQN(N, g, gamma, epsilon0, epsilonF, nEpsilon, memoryLength, lr = 0.01,
         maxaQsPrimea = maxaQsPrimea.view(1)
         # c) Calculate  delta
         delta = Qsa - r - gamma*maxaQsPrimea
-        if loud or not quiet:
+        if loud or n%showEvery == 0:
+            print(n,'/',N,sep='')
             # Display the delta value
-            print('delta = Q(s,a) - r - gamma * max_a Q(s\', a)', \
+            print('delta = Q(s,'+actionString+') - r - gamma * max_a Q(s\', a)', \
                 Qsa.item(), '-', r.item(), '-', gamma, '*', maxaQsPrimea.item(), \
                 '=', delta.item())
             # Display the average reward per turn to date.

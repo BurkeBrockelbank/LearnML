@@ -131,11 +131,11 @@ class BrainDQN(torch.nn.Module):
         vision = [x.count(1) for x in Grid.SIGHT]
         vision = sum(vision)
         # Calculate input size
-        inputSize = (vision*len(Roomgen.BLOCKTYPES) + 1 + len(Roomgen.WASD))*memoryLength
-        self.l1 = torch.nn.Linear(inputSize, 20)
-        self.l2 = torch.nn.Linear(20, 20)
-        self.l3 = torch.nn.Linear(20, 10)
-        self.l4 = torch.nn.Linear(10, 1)
+        inputSize = (vision*len(Roomgen.BLOCKTYPES) + 1)*memoryLength + len(Roomgen.WASD)
+        self.l1 = torch.nn.Linear(inputSize, 300)
+        self.l2 = torch.nn.Linear(300, 121)
+        self.l3 = torch.nn.Linear(121, 5)
+        self.l4 = torch.nn.Linear(5, 1)
         # Define the ReLU function
         self.relu = torch.nn.ReLU()
         self.sigmoid = torch.nn.Sigmoid()
@@ -155,7 +155,7 @@ class BrainDQN(torch.nn.Module):
             s: The state vector.
             a: The action.
         """
-        h = self.relu(self.l1(torch.cat((s,a), -1)))
+        h = self.sigmoid(self.l1(torch.cat((s,a), -1)))
         h = self.sigmoid(self.l2(h))
         h = self.sigmoid(self.l3(h))
         h = self.l4(h)
