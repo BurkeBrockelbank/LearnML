@@ -1,4 +1,9 @@
-# This is the main program for Monkey Want Banana
+"""
+Main program
+
+Project: Monkey Deep Q Recurrent Network with Transfer Learning
+Path: root/main.py
+"""
 
 from __future__ import print_function
 from __future__ import division

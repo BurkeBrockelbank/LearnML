@@ -6,6 +6,9 @@ channel maps).
 IMPORTANT NOTE: Converting a channel map into an ASCII map removes information
 about multiple objects in the same grid space. Converting an ASCII map into a
 channel map loses no information.
+
+Project: Monkey Deep Q Recurrent Network with Transfer Learning
+Path: root/room_generator.py
 """
 
 from __future__ import print_function
@@ -47,7 +50,7 @@ def ASCII_to_channel(ASCII_map):
                 with_traceback(e.__traceback__)
 
     # Initialize the channel map
-    channels = to.zeros((len(gl.BLOCK_TYPES),height, width))
+    channels = to.zeros((len(gl.BLOCK_TYPES),height, width), dtype = to.uint8)
     # Iterate through the ASCII map
     for i, row in enumerate(rows):
         for j, symbol in enumerate(row):

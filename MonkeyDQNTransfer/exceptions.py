@@ -1,3 +1,10 @@
+"""
+This file contains custom exceptions.
+
+Project: Monkey Deep Q Recurrent Network with Transfer Learning
+Path: root/exceptions.py
+"""
+
 class DeathError(Exception):
     """
     Raised when all the monkeys in a grid are dead.

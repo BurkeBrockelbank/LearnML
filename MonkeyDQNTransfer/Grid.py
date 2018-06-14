@@ -1,57 +1,102 @@
-# The grid class stores information about the place where the monkey lives,
-# manages input to the monkey, executes its actions, and performs a total iteration
+"""
+This is the grid module, which contains the grid class. Grid classes manage the game state.
+
+Project: Monkey Deep Q Recurrent Network with Transfer Learning
+Path: root/grid.py
+"""
 
 from __future__ import print_function
 from __future__ import division
-import Monkey
-import Roomgen
-import Exceptions
-import torch
+
+import torch as to
+import torch.nn as nn
+import matplotlib.pyplot as plt
+
+import global_variables as gl
+import exceptions
+import room_generator as rg
+
 import math
-from random import randrange
-
-# SIGHT =[[0,0,0,0,0,0,0,1,1,1,1,1,0,0,0,0,0,0,0],
-#         [0,0,0,0,0,1,1,1,1,1,1,1,1,1,0,0,0,0,0],
-#         [0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0],
-#         [0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0],
-#         [0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0],
-#         [0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0],
-#         [0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0],
-#         [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
-#         [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
-#         [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
-#         [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
-#         [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
-#         [0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0],
-#         [0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0],
-#         [0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0],
-#         [0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0],
-#         [0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0],
-#         [0,0,0,0,0,1,1,1,1,1,1,1,1,1,0,0,0,0,0],
-#         [0,0,0,0,0,0,0,1,1,1,1,1,0,0,0,0,0,0,0]]
-
-# SIGHT =[[0,0,0,1,0,0,0],
-#         [0,1,1,1,1,1,0],
-#         [0,1,1,1,1,1,0],
-#         [1,1,1,1,1,1,1],
-#         [0,1,1,1,1,1,0],
-#         [0,1,1,1,1,1,0],
-#         [0,0,0,1,0,0,0]]
-
-# SIGHT =[[0,0,0,1,1,1,1,1,0,0,0],
-#         [0,0,1,1,1,1,1,1,1,0,0],
-#         [0,1,1,1,1,1,1,1,1,1,0],
-#         [1,1,1,1,1,1,1,1,1,1,1],
-#         [1,1,1,1,1,1,1,1,1,1,1],
-#         [1,1,1,1,1,1,1,1,1,1,1],
-#         [1,1,1,1,1,1,1,1,1,1,1],
-#         [1,1,1,1,1,1,1,1,1,1,1],
-#         [0,1,1,1,1,1,1,1,1,1,0],
-#         [0,0,1,1,1,1,1,1,1,0,0],
-#         [0,0,0,1,1,1,1,1,0,0,0]]
-SIGHT = [[1]*11 for _ in range(11)]
+import random
+import copy
 
 class Grid:
+    """
+    The grid object keeps track of and alters the game state. All queries
+    actions related to the game state should go through here.
+
+    Eventually this object will support multiple monkeys. Efforts are made to
+    enforce this capability but as of now, this object is only tested for a
+    single monkey.
+    """
+    def __init__(self, monkeys, channel_map, place_monkeys=True):
+        """
+        Initialization for the grid object.
+
+        Args:
+            monkeys: A list of monkeys.
+            room: A channel map.
+            place_monkeys: Default True. If True, monkeys are assumed to be
+            in the channel map already. If False, monkeys are placed into the
+                channel map from their positions.
+        """
+        self.monkeys = []
+        self.channel_map = channel_map
+        self.width = len(channel_map[0])
+        self.height = len(channel_map)
+        self.turn_count = 0
+        # Add in the monkeys into the room
+        monkey_channel = self.channel_map[gl.BLOCK_TYPES.index('m')]
+        for monkey in self.monkeys:
+            i,j = monkey.pos
+            monkey_channel[i][j] += 1
+
+    def surroundings(self, pos):
+        """
+        This function finds the surroundings of a monkey based on its sightlines.
+        the sightline is assumed to be a square matrix.
+
+        Args:
+            pos: The position (integer couple) around wich we will center the map.
+
+        Returns:
+            0: A cropped channel map.
+        """
+        # The first thing to do is pad the channel map with enough zeros that
+        # we could put the monkey anywhere
+        radius = len(gl.SIGHT)//2
+        padded = F.pad(self.channel_map,(radius, radius, radius, radius))
+        # Now slice the array
+        sliced = padded[pos[0]:pos[0]+len(gl.SIGHT),pos[1]:pos[1]+len(gl.SIGHT)]
+
+
+    def __str__(self):
+        """
+        This function returns the ASCII map.
+
+        Returns:
+            0: ASCII string.
+        """
+        return rg.channel_to_ASCII(self.channel_map)
+
+    def __repr__(self):
+        """
+        This function returns the channel maps in a string plus the
+        list of monkeys in strings.
+
+        Returns:
+            0: Representation string.
+        """
+        return repr(self.turn_count) + repr(self.channel_map) + str(self.monkeys)
+
+
+
+
+
+
+
+
+
     def __init__(self, monkeys, monkeyPos, room):
         self.monkeys = monkeys
         for i, p in enumerate(monkeyPos):
@@ -133,8 +178,8 @@ class Grid:
                 monkey.eat(bananasToPlace)
                 # Replace the bananas
                 while bananasToPlace > 0:
-                    bi = randrange(len(self.room))
-                    bj = randrange(len(self.room[0]))
+                    bi = random.randrange(len(self.room))
+                    bj = random.randrange(len(self.room[0]))
                     if self.room[bi][bj] == Roomgen.ABSTRACTIONS[' ']:
                         self.room[bi][bj] = Roomgen.ABSTRACTIONS['b']
                         bananasToPlace -= 1

@@ -1,3 +1,10 @@
+"""
+The monkey module contains the monkey object which holds a brain and keeps track of food, age, etc.
+
+Project: Monkey Deep Q Recurrent Network with Transfer Learning
+Path: root/monkey.py
+"""
+
 from __future__ import print_function
 from __future__ import division
 
@@ -26,6 +33,18 @@ class Monkey:
         self.bananas = 0
         self.age = 0
 
+    def __repr__(self):
+        return repr(self.brain)+str(self)
+
+    def __str__(self):
+        return 'food '+str(self.food)+\
+        '\ndead '+str(self.dead)+\
+        '\npos '+str(self.pos)+\
+        '\nfood_per_banana '+str(self.food_per_banana)+\
+        '\nfood_per_turn '+str(self.food_per_turn)+\
+        '\nbananas '+str(self.bananas)+\
+        '\nage '+str(self.age)
+
     def eat(self, n):
         """
         Run this function to give the monkey a banana.
@@ -45,16 +64,13 @@ class Monkey:
             epsilon: Default -1. This is the chance of doing something random.
 
         Returns:
-            0: The policy action in the form of a one-hot vector.
-            1: The policy action in the form of a string.
+            0: The policy action in the form of an action integer.
         """
         if self.dead:
             return ' '
         # Get the policy
         a = self.brain.pi(s, epsilon)
-        # Get the index that this corresponds to.
-        direction_index = max(range(len(a)), key=a.__get__item)
-        return a, gl.WASD[direction_index]
+        return a
 
     def tick(self):
         """
@@ -71,47 +87,47 @@ class Monkey:
         """
         self.dead = True
 
-    def move(self, direction):
+    def move(self, action):
         """
         This function moves the monkey one space.
 
         Args:
-            direction: The direction to move in terms of a 2-tensor where
+            action: The action to move in terms of a 2-tensor where
                 each row is one-hot.
         """
-        _, direction_index = direction.max(1)
+        symbol = gl.WASD[action]
         if self.dead:
             pass
-        elif direction_index  == 1:
+        elif symbol  == 'a':
             self.pos = (self.pos[0], self.pos[1]-1)
-        elif direction_index  == 3:
+        elif symbol  == 'd':
             self.pos = (self.pos[0], self.pos[1]+1)
-        elif direction_index  == 4:
+        elif symbol  == ' ':
             self.pos = (self.pos[0], self.pos[1])
-        elif direction_index  == 0:
+        elif symbol  == 'w':
             self.pos = (self.pos[0]-1, self.pos[1])
-        elif direction_index  == 2:
+        elif symbol  == 's':
             self.pos = (self.pos[0]+1, self.pos[1])
 
-    def unmove(self, direction):
+    def unmove(self, action):
         """
         This function reverses the effect of the move function.
 
         Args:
-            direction: The direction to unmove in terms of a one-hot vector.
+            action: The action to unmove in terms of a one-hot vector.
         """
-        _, direction_index = direction.max(1)
+        symbol = gl.WASD[action]
         if self.dead:
             pass
-        elif direction_index  == 3:
+        elif symbol  == 'd':
             self.pos = (self.pos[0], self.pos[1]-1)
-        elif direction_index  == 1:
+        elif symbol  == 'a':
             self.pos = (self.pos[0], self.pos[1]+1)
-        elif direction_index  == 4:
+        elif symbol  == ' ':
             self.pos = (self.pos[0], self.pos[1])
-        elif direction_index  == 2:
+        elif symbol  == 's':
             self.pos = (self.pos[0]-1, self.pos[1])
-        elif direction_index  == 0:
+        elif symbol  == 'w':
             self.pos = (self.pos[0]+1, self.pos[1])
 
 
