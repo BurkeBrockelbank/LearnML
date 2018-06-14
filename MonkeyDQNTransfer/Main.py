@@ -1,17 +1,21 @@
 # This is the main program for Monkey Want Banana
+
 from __future__ import print_function
 from __future__ import division
 
-import Roomgen
-import Monkey
-import Grid
-import Trainer
-import Brain
-import torch
+import torch as to
+import torch.nn as nn
 import matplotlib.pyplot as plt
 
+import global_variables as gl
+import exceptions
+import room_generator as rg
+import brain
+import monkey
+
+
 # Start with the basic room
-roomStartPicture =     '##################################\n'+\
+roomStartPicture =  '##################################\n'+\
                     '#  b                   #  b      #\n'+\
                     '#          d  b        #     b   #\n'+\
                     '#    b   b              d        #\n'+\
@@ -28,17 +32,16 @@ roomStartPicture =     '##################################\n'+\
                     '#         b     #           ######\n'+\
                     '##################################'
 
-roomStart = Roomgen.abstract(roomStartPicture)
-
-# Define number of turns of memory
-memoryLength = 15
-# Define discount factor
-gamma = 0.8
-# Instantiate brain
-brain = Brain.BrainDQN(memoryLength)
-# Instantiate the monkey
-mitch = Monkey.MonkeyDQN(brain)
-g = Grid.Grid([mitch],[(13,18)],roomStart)
+roomStart = rg.ASCII_to_channel(roomStartPicture)
+# # Define number of turns of memory
+# memoryLength = 15
+# # Define discount factor
+# gamma = 0.8
+# # Instantiate brain
+# brain = Brain.BrainDQN(memoryLength)
+# # Instantiate the monkey
+# mitch = Monkey.MonkeyDQN(brain)
+# g = Grid.Grid([mitch],[(13,18)],roomStart)
 
 
 # # Load brain from permanent memory
@@ -79,8 +82,8 @@ g = Grid.Grid([mitch],[(13,18)],roomStart)
 #     plt.clf()
 
 
-# Generate training data
-Trainer.generateTrainingDataContinuous(2000, 'DataDQNTransfer.txt', roomStart)
+# # Generate training data
+# Trainer.generateTrainingDataContinuous(2000, 'DataDQNTransfer.txt', roomStart)
 
 # # Test the monkey
 # mitch = Monkey.Monkey(brain)

@@ -1,120 +1,58 @@
-import torch
-import Roomgen
-import Grid
+"""
+This module holds brain type objects. Brain objects must have a forward
+function that takes in a tensor of states and returns a one-hot direction
+vector. They must have a policy function that evaluates the highest
+quality move. They must have a Q function that takes in a tensor of states
+and one-hot direction and returns the quality of that move.
+"""
 
-class Brain0(torch.nn.Module):
-    def __init__(self):
-        """ 
-        This first iteration of the monkey brain has no memory, and has
-        583 inputs (1 for food and 582 for vision). The net is of the form
-        200 ReLu, 150 ReLu, 50 ReLu, 20 ReLu, 5 ReLu, Softmax. All symmetry
-        considerations are currently ignored.
-        """
-        super(Brain0, self).__init__()
-        self.s1 = 583
-        self.s2 = 100
-        self.s3 = 100
-        self.s4 = 30
-        self.s5 = 25
-        self.s6 = 5
-        self.s7 = 5
-        self.s8 = 5
-        self.linear1 = torch.nn.Linear(self.s1, self.s2)
-        self.linear2 = torch.nn.Linear(self.s2, self.s3)
-        self.linear3 = torch.nn.Linear(self.s3, self.s4)
-        self.linear4 = torch.nn.Linear(self.s4, self.s5)
-        self.linear5 = torch.nn.Linear(self.s5, self.s6)
-        self.linear6 = torch.nn.Linear(self.s6, self.s7)
-        self.linear7 = torch.nn.Linear(self.s7, self.s8)
-        self.softmax = torch.nn.Softmax(-1)
+from __future__ import print_function
+from __future__ import division
 
-    def forward(self, x):
-        """
-        Takes the length 583 input vector and outputs a softmax vector.
-        """
-        r = torch.nn.ReLU()
-        lr = torch.nn.LeakyReLU()
-        s = torch.nn.Sigmoid()
-        h1 = lr(self.linear1(x))
-        h2 = s(self.linear2(h1))
-        h3 = s(self.linear3(h2))
-        h4 = s(self.linear4(h3))
-        h5 = lr(self.linear5(h4))
-        h6 = lr(self.linear6(h5))
-        h7 = lr(self.linear7(h6))
-        y_pred = self.softmax(h7)
-        return y_pred
+import torch as to
+import torch.nn as nn
 
-class Brain1(torch.nn.Module):
-    """ 
-    This second iteration of the monkey brain has no memory, is linear,
-    and much simpler. Although it is linear, I have chosen to have two
-    hidden layers as it aids in comprehension.    
-    """
-    def __init__(self):
-        """
-        Initialization of all the functions.
-        """
-        super(Brain1, self).__init__()
-        self.s1 = 583
-        self.s2 = 10
-        self.s3 = 5
-        self.linear1 = torch.nn.Linear(self.s1, self.s2)
-        self.linear2 = torch.nn.Linear(self.s2, self.s3)
-        self.softmax = torch.nn.Softmax(-1)
-        self.r = torch.nn.ReLU()
-        self.lr = torch.nn.LeakyReLU()
-        self.s = torch.nn.Sigmoid()
+import global_variables as gl
+import exceptions
+import room_generator as rg
 
-    def forward(self, x):
-        """
-        Takes the length 583 input vector and outputs a softmax vector.
-        """
-        h1 = self.r(self.linear1(x))
-        h2 = self.linear2(h1)
-        y_pred = self.softmax(h2)
-        return y_pred
-
-class Brain2(torch.nn.Module):
-    """
-    An update on the monkey brain to deal with a new sight field of size 11x11.
-    This gives 11*11*5+1 input neurons. We may need slightly more complexity
-    because are also planning on implementing danger blocks.
-    """
-    def __init__(self):
-        """
-        Initialize sizes, get functions from functionals, establish layers of
-        NN.
-        """
-        # Initializing Neural Net object
-        super(Brain2, self).__init__()
-        # Initialize sizes
-        self.s1 = len(Grid.SIGHT)*len(Grid.SIGHT[0])*len(Roomgen.BLOCKTYPES)+1
-        self.s2 = 10
-        self.s3 = 5
-        # Run functionals
-        self.softmax = torch.nn.Softmax(-1)
-        self.r = torch.nn.ReLU()
-        self.lr = torch.nn.LeakyReLU()
-        self.s = torch.nn.Sigmoid()
-        # Define units
-        self.linear1 = torch.nn.Linear(self.s1, self.s2)
-        self.linear2 = torch.nn.Linear(self.s2, self.s3)
-
-    def forward(self, x):
-        """
-        A neural net with two hidden layrs of size 10 and 5 respectively.
-        """
-        h1 = self.s(self.linear1(x))
-        h2 = self.s(self.linear2(h1))
-        y_pred = self.softmax(h2)
-        return y_pred
+import random
 
 class BrainDQN(torch.nn.Module):
     """
-    Try training the monkey with reinforcement learning.
-    This class approximates quality the function Q.
+    This is the basic deep-Q brain class that all other brain classes will be
+    based on.
     """
+
+    def __init__(self):
+        """
+        Initialize the architecture of the neural net.
+        """
+        # Initialize the parent class
+        super(BrainDQN, self).__init__()
+
+    def forward(self, s):
+        Q = to.randn((1,len(gl.WASD)))
+        return Q
+
+    def argmax_action(self, s):
+        Q = self.forward(s)
+        maxQ, max_a = Q.max(1)
+        eye = to.eye(len(gl.WASD))
+        max_a_1_hot = eye[max_a]
+        return max_a_1_hot
+
+    def Q(self, s, a):
+        pass
+
+    def pi(s, epsilon):
+        pass
+
+
+
+
+
+
     def __init__(self, memoryLength):
         """
         Initialize the structure of the neural net. We have the standard

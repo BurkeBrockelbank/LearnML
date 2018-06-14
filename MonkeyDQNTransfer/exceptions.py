@@ -12,7 +12,7 @@ class ControlError(Exception):
 
 class MapSizeError(Exception):
     """
-    Raised for non-rectangular maps or inconsistently sized layer maps.
+    Raised for non-rectangular maps or inconsistently sized channel maps.
     """
     pass
 
