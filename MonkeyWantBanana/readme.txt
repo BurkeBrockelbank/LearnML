@@ -4,7 +4,7 @@ Hello,
 
   This was attempted with supervised learning. I played the game for aproximately 300 turns and trained the monkey based on this. It ended up not working that well because the monkey would get stuck in infinite loops, especially if it ended up in odd areas that it was never trained for. It became clear that the monkey needed some amount of memory in order to function. I first attempted to implement this by having some of the outputs of the neural net be fed back into the inputs, but I ran into programming issues. There is no mathematical reason this can't work. This kind of memory is the most attractive because it allows for an abstract form of memory with planning.
 
-  I switched the monkey over to a reinforcement learning algorithm (DQN), but have run into the issue that the monkey is too stupid to learn. I believe there may be a bug leading the monkey to preferentially go up, which I will test shortly.
+  I switched the monkey over to a reinforcement learning algorithm (DQN), but have run into the issue that the monkey is too stupid to learn. I am planning on implementing transfer learning by doing supervised learning on some handmade training data before refining the brain with reinforcement learning.
 
 Burke Brockelbank
 bbrockel@ucalgary.ca

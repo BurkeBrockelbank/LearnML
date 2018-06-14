@@ -211,8 +211,10 @@ class BrainDQN(torch.nn.Module):
                     print('Random movement (',round(epsilon*100),'%)', sep='')
                 return a[randomIndex]
             else:
+                a = self.maxa(s)
                 if loud:
-                    print('Delibe movement (',round((1-epsilon)*100),'%)', sep='')
+                    print('Delibe movement (',round((1-epsilon)*100),\
+                        '%) Q = ', self.forward(s,a).item(),sep='')
                 return self.maxa(s)
 
 

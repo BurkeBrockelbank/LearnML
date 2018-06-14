@@ -31,9 +31,9 @@ roomStartPicture =     '##################################\n'+\
 roomStart = Roomgen.abstract(roomStartPicture)
 
 # Define number of turns of memory
-memoryLength = 5
+memoryLength = 15
 # Define discount factor
-gamma = 0.6
+gamma = 0.8
 # Instantiate brain
 brain = Brain.BrainDQN(memoryLength)
 # Instantiate the monkey
@@ -44,62 +44,43 @@ g = Grid.Grid([mitch],[(13,18)],roomStart)
 # # Load brain from permanent memory
 # brain.load_state_dict(torch.load('brainsave.txt'))
 
-# Train the monkey in a supervised way
-Trainer.trainDQNSupervised(brain, 'Data1111.txt', 3000, memoryLength, gamma, \
-    lr = 1e-2, reports = 10, quiet = False)
-    # tick
-    # g.tick(control='user')
-    # # get state
-    # surroundings, _ = g.surroundingVector(g.monkeys[0].pos)
-    # food = torch.tensor([g.monkeys[0].food])
-    # s1= torch.cat((food, surroundings))
-    # s1 = s1.float()
-    # if i == 0:
-    #     memory = []
-    #     for j in range(5):
-    #         memory.append(s1)
-    # else:
-    #     memory.append(s1)
-    #     del memory[0]
-    # s = torch.cat(tuple(memory))
-    # # Get qualities
-    # Qsa = g.monkeys[0].brain.maxa(s)
+# # Train the monkey with deep Q learning
+# Trainer.trainDQN(500, g, gamma, 0.2, 0.05, 100, memoryLength, lr=0.001,loud=True,showEvery=1000)
 
 # # Train the monkey
-# Trainer.trainDQN(500000, g, gamma, 0.2, 0.2, 5000, memoryLength, lr=0.01,loud=True,showEvery=1000)
-
-# Save the brain to permanent memory
-torch.save(brain.state_dict(), 'brainsave.txt')
-
-
-# # Train the monkey
-# for ii in range(1):
-#     learningRate = 1e-2
-#     epochs = 10
-#     prediction, loss, reportRecord = Trainer.train(brain, 'Data1111.txt', \
-#                         epochs, lr=learningRate, reports=3, quiet=False)
+# for ii in range(10):
+#     print(ii)
+#     learningRate = 1e-3
+#     epochs = 1000
+#     reports = 20
+#     loss, reportRecord = Trainer.trainDQNSupervised(brain, 'Data1111.txt', epochs, memoryLength, gamma, \
+#     lr = 1e-3, reports = reports, quiet = False)
 
 #     # Save the brain to permanent memory
 #     torch.save(brain.state_dict(), 'brainsave.txt')
 
 #     # Save the report record
-#     outF = open('report.txt', 'a')
+#     outF = open('reportDQN.txt', 'a')
 #     outF.write(str(reportRecord))
 #     outF.write('\n')
 #     outF.close()
 #     # Load the old reports
-#     toShow = Trainer.loadRecords('report.txt')
+#     toShow = Trainer.loadRecords('reportDQN.txt')
+#     # Grab the most recent epoch and separate it (to colour it differently)
+#     olderData = toShow[:-reports]
+#     newerData = toShow[-reports:]
 #     # Plot the report record
-#     plt.plot(*zip(*toShow))
-#     plt.savefig('./img/brain2.png')
-#     plt.show()
+#     plt.title('Supervised Portion of DQN Transfer Learning')
+#     plt.xlabel('Epochs')
+#     plt.ylabel('Quality Loss (Sum of Squares)')
+#     plt.plot(*zip(*olderData), color='blue')
+#     plt.plot(*zip(*newerData), color='red')
+#     plt.savefig('./img/brainDQNSupervised.png')
 #     plt.clf()
 
 
-# # Generate training data
-# mitch = Monkey.Monkey(brain)
-# g = Grid.Grid([mitch],[(3,10)],roomStart)
-# Trainer.generateTrainingDataContinuous(1000, 'Data1111.txt', roomStart)
+# Generate training data
+Trainer.generateTrainingDataContinuous(2000, 'DataDQNTransfer.txt', roomStart)
 
 # # Test the monkey
 # mitch = Monkey.Monkey(brain)

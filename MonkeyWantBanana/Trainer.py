@@ -87,7 +87,7 @@ def generateTrainingDataContinuous(N,filePath,abstractMap,saturateFood=False):
     for ii in range(N):
         # Tick
         try:
-            direction, surrVec = g.tick(trainingData = True, manualControl = True)
+            direction, surrVec = g.tick(trainingData = True, control='user')
         except Exceptions.DeathError:
             print('Exiting training, returning test data')
             return testData
@@ -182,16 +182,16 @@ def loadRecords(path):
     
     # Update the epoch numbers in the records
     for i in range(1, len(records)):
-        startEpoch = records[i-1][-1][0]
+        startEpoch = records[i-1][-1][0]+1
         newEpochs = []
         for point in records[i]:
             newEpochs.append((point[0]+startEpoch, point[1]))
         records[i] = newEpochs
     # Join the records together
     if len(records) == 1:
-        return records
+        return records[0]
     else:
-        return sum(records)
+        return sum(records, [])
 
 def trainDQNSupervised(brain, filePath, N, memoryLength, gamma, lr = 1e-2, reports = 10, quiet = True):
     """
@@ -245,41 +245,33 @@ def trainDQNSupervised(brain, filePath, N, memoryLength, gamma, lr = 1e-2, repor
     s = torch.stack(sValues)
 
     # Calculate the immediate reward of each move
-    rValues = [x[i][0]-x[i-1][0] for i in range(memoryLength, x.size()[0])]
-    # Calculate the best guess for the quality of the move
-    QValues = [rValues[-1]]
-    for r in rValues[-2::-1]:
-        QValues.append(gamma*QValues[-1]+r)
-    QValues = QValues[::-1]
+    r = [x[i][0]-x[i-1][0] for i in range(memoryLength, x.size()[0])]
+    # Calculate the real quality of the move
+    Q = [r[-1]]
+    for rVal in r[-2::-1]:
+        Q.append(gamma*Q[-1]+rVal)
+    Q = Q[::-1]
     # Find out where to stop (we don't want to train uless we have a quality
     # value within about 10% of what is actually true)
     turnsToCut = math.ceil(-1.0/math.log10(gamma))
-    QValues = QValues[:-turnsToCut]
-    Q = torch.stack(QValues)
+    Q = Q[:-turnsToCut]
+    Q = torch.stack(Q)
+    Q = Q.view((len(Q),1))
 
-    # We can cut away the unused turns of y
+    # We can cut away the unused turns of a
     a = a[memoryLength-1:-turnsToCut-1]
     # Cut away the unused turns of the states
     s = s[:-turnsToCut]
-    print(a.size())
-    print(a[:6])
-    print(s.size())
-    print(s[:6])
-    print(torch.stack(rValues).size())
-    print(torch.stack(rValues)[:10])
-    print(Q.size())
-    print(Q[:10])
-    return None
 
     # Define the loss function
-    criterion = torch.nn.CrossEntropyLoss()
+    criterion = torch.nn.MSELoss(size_average=False)
     # Create an optimizer
-    optimizer = torch.optim.SGD(brain.parameters(), lr)
+    optimizer = torch.optim.RMSprop(brain.parameters(), lr=lr)
     for epoch in range(N):
         # Forward pass: Compute predicted y by passing x to the model
-        y_pred = brain(x)
+        QPrediction = brain(s, a)
         # Compute and print loss
-        loss = criterion(y_pred, y1)
+        loss = criterion(QPrediction, Q)
         if reports != 0:
             if (N-epoch-1)%(reportEvery) == 0:
                 if not quiet:
@@ -289,7 +281,7 @@ def trainDQNSupervised(brain, filePath, N, memoryLength, gamma, lr = 1e-2, repor
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
-    return y_pred, loss, reportList
+    return loss, reportList
 
 def trainDQN(N, g, gamma, epsilon0, epsilonF, nEpsilon, memoryLength,
     lr = 0.01, loud = False, showEvery=1):
@@ -347,6 +339,8 @@ def trainDQN(N, g, gamma, epsilon0, epsilonF, nEpsilon, memoryLength,
 
     # Iterate N times
     for n in range(N):
+        if loud:
+            print('------------------------------')
         # 1) Get the policy's action.
         # We will first compute epsilon
         epsilon = epsilonF + (epsilon0-epsilonF)*math.exp(-n/nEpsilon)
