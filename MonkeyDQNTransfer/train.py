@@ -35,9 +35,18 @@ def training_data(N, paths, g):
         # Iterate through the paths, surroundings, and actions
         for path, surr, action in zip(paths, surroundings, actions):
             # Write the data to file
-            inF = open(path, 'a')
-            inF.write(str((action,surr)).replace('tensor','torch.tensor'))
-            inF.close()
+            outF = open(path, 'a')
+            outF.write('(')
+            outF.write(str(action))
+            outF.write(',')
+            surr_string = str(surr)
+            surr_string = surr_string.replace('tensor','torch.tensor')
+            surr_string = surr_string.replace(' ','')
+            surr_string = surr_string.replace('\n','')
+            outF.write(surr_string)
+            outF.write(')')
+            outF.write('\n')
+            outF.close()
 
 def generateTrainingDataSporadic(N, filePath,abstractMap):
     # This is a creator for generating data from the map

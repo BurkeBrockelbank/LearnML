@@ -18,6 +18,7 @@ import room_generator as rg
 import brain
 import monkey
 import grid
+import train
 
 
 # Start with the basic room
@@ -47,8 +48,7 @@ monkey.pos = (3,3)
 g = grid.Grid([monkey], roomStart)
 
 # Test out movement
-for n in range(5):
-     g.tick(2, loud=True)
+train.training_data(10,['data_channels.txt'], g)
 
 # Test the user control of the monkey.
 

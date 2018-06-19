@@ -54,7 +54,7 @@ class Monkey:
             n: The number of bananas to give the monkey.
         """
         self.bananas += n
-        self.food += self.food_per_eat*n
+        self.food += self.food_per_banana*n
 
     def action(self, s, epsilon = -1):
         """

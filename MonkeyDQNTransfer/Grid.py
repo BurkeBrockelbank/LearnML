@@ -11,6 +11,7 @@ from __future__ import division
 
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 import matplotlib.pyplot as plt
 
 import global_variables as gl
@@ -30,24 +31,29 @@ class Grid:
     enforce this capability but as of now, this object is only tested for a
     single monkey.
     """
-    def __init__(self, monkeys, channel_map, place_monkeys=True):
+    def __init__(self, monkeys, channel_map):
         """
         Initialization for the grid object.
 
         Args:
             monkeys: A list of monkeys.
             room: A channel map. Data type is unit8.
-            place_monkeys: Default True. If True, monkeys are assumed to be
-            in the channel map already. If False, monkeys are placed into the
-                channel map from their positions.
         """
         self.monkeys = monkeys
         self.channel_map = channel_map
-        self.width = len(channel_map[0])
-        self.height = len(channel_map)
         self.turn_count = 0
         # Add in the monkeys into the room
+        self.replace_monkeys()
+
+    def replace_monkeys(self):
+        """
+        Puts the monkeys in their place in the channel map.\
+        """
+        # Find the right channel
         monkey_channel_index = gl.BLOCK_TYPES.index('m')
+        # Clear all the monkeys
+        self.channel_map[monkey_channel_index] = torch.zeros(\
+            self.channel_map[0].size(), dtype = torch.uint8)
         for monkey in self.monkeys:
             i,j = monkey.pos
             self.channel_map[monkey_channel_index][i][j] += 1
@@ -139,16 +145,19 @@ class Grid:
             # Now we want to move the monkey
             monkey.move(action)
             # Get the blocks on this space
-            this_space = self.channel_map[:][monkey.pos[0]][monkey.pos[1]]
+            this_space = self.channel_map[:,monkey.pos[0],monkey.pos[1]]
             # Check if the monkey is trying to move to a barrier
             if this_space[gl.BLOCK_TYPES.index('#')] >= 1:
                 # Need to unmove the monkey.
                 monkey.unmove(action)
                 # Get the blocks on this space
-                this_space = self.channel_map[:][monkey.pos[0]][monkey.pos[1]]
+                this_space = self.channel_map[:,monkey.pos[0],monkey.pos[1]]
+
             # Feed the monkey any bananas on this spot
-            for i in range(this_space[gl.BLOCK_TYPES.index('b')]):
-                monkey.eat()
+            monkey.eat(this_space[gl.BLOCK_TYPES.index('b')])
+            # Remove all the bananas on this spot
+            this_space[gl.BLOCK_TYPES.index('b')] = 0
+
             # Check if the monkey is in danger
             if this_space[gl.BLOCK_TYPES.index('d')] >= 1:
                 monkey.dead = True
@@ -166,7 +175,9 @@ class Grid:
                 dead_monkeys.append(monkey_index)
         # Remove dead monkeys
         for dead_index in dead_monkeys[::-1]:
-            del monkeys[dead_index]
+            del self.monkeys[dead_index]
+        # Replace the monkeys
+        self.replace_monkeys()
         # Check if there are any monkeys left
         if len(self.monkeys) == 0:
             print('All monkeys have died.')
@@ -190,18 +201,21 @@ class Grid:
         # The first thing to do is pad the channel map with enough zeros that
         # we could put the monkey anywhere and still slice the array
         radius = len(gl.SIGHT)//2
-        padded = torch.zeros(self.channel_map.size(),dtype=torch.uint8)
-        for i in range(len(gl.index)):
+        padded_size = torch.tensor(self.channel_map.size())
+        padded_size += torch.tensor([0, radius*2, radius*2])
+        padded_size = torch.Size(padded_size.tolist())
+        padded = torch.zeros(padded_size,dtype=torch.uint8)
+        for i in range(len(gl.BLOCK_TYPES)):
             # Pad the barrier channel with ones and everything else with zeros.
             padding_value = 0
-            if i == gl.index('#'):
+            if i == gl.BLOCK_TYPES.index('#'):
                 padding_value = 1
             padded[i] = F.pad(self.channel_map[i],\
             (radius, radius, radius, radius), value=padding_value)
         # Note: The elements of padded do not share pointers with the elements
         # of self.channel_map.
         # Slice the array
-        sliced = padded[pos[0]:pos[0]+len(gl.SIGHT), \
+        sliced = padded[:, pos[0]:pos[0]+len(gl.SIGHT), \
             pos[1]:pos[1]+len(gl.SIGHT)]
         # Now we need to obscure any blocks that are deemed invisible.
         for i, row in enumerate(gl.SIGHT):
