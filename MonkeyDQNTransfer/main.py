@@ -48,7 +48,7 @@ monkey.pos = (3,3)
 g = grid.Grid([monkey], roomStart)
 
 # Test out movement
-train.training_data(10,['data_channels.txt'], g)
+train.training_data(1000,['data_channels.txt'], g)
 
 # Test the user control of the monkey.
 

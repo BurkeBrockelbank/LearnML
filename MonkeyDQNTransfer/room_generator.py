@@ -146,8 +146,13 @@ def channel_to_ASCII(channel_map,indeces=False,index_offset=(0,0)):
                     key = channels.__getitem__)
                 # If there is no block here, do nothing
                 if channels[maxIndex] != 0:
-                    # Otherwise we will add the block here
-                    symbol = gl.BLOCK_TYPES[maxIndex]
+                    # If there is any danger here, it needs to be shown,
+                    # regardless of the maximum index.
+                    if channels[gl.BLOCK_TYPES.index('d')] >= 0:
+                        symbol = 'd'
+                    else:
+                        # Otherwise we will add the block here
+                        symbol = gl.BLOCK_TYPES[maxIndex]
                     # Add the block to the map
                     ASCII_rows[i][j] = symbol
         # Join the rows together

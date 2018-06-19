@@ -41,6 +41,8 @@ class Grid:
         """
         self.monkeys = monkeys
         self.channel_map = channel_map
+        self.height = len(channel_map[1])
+        self.width = len(channel_map[2])
         self.turn_count = 0
         # Add in the monkeys into the room
         self.replace_monkeys()
@@ -82,8 +84,11 @@ class Grid:
 
         # Instantiate a list for dying monkeys
         dead_monkeys = []
-        surrs = []
+
+        # Instantiate record lists
+        foods = []
         actions = []
+        surrs = []
 
         # Iterate through all the monkeys
         for monkey_index, monkey in enumerate(self.monkeys):
@@ -92,7 +97,7 @@ class Grid:
             # Print details for this tick
             if loud:
                 # Print monkey number and number of bananas
-                print('Monkey', monkey_index, 'bananas', monkey.food, 'age', monkey.age)
+                print('Monkey', monkey_index, 'food', int(monkey.food), 'age', monkey.age)
                 # Get the ascii map
                 text_map = rg.channel_to_ASCII(surr,indeces=True,index_offset=monkey.pos)
                 # Print the ascii map
@@ -139,8 +144,9 @@ class Grid:
                 raise ControlError('Control must be specified as 0, 1, or 2')
 
             # Add the surroundings and actions to the record.
-            surrs.append(surr)
+            foods.append(monkey.food)
             actions.append(action)
+            surrs.append(surr)
 
             # Now we want to move the monkey
             monkey.move(action)
@@ -155,6 +161,13 @@ class Grid:
 
             # Feed the monkey any bananas on this spot
             monkey.eat(this_space[gl.BLOCK_TYPES.index('b')])
+            # Randomly put new bananas around
+            for banana_index in range(this_space[gl.BLOCK_TYPES.index('b')]):
+                # Get two random indeces
+                i = random.randrange(self.height)
+                j = random.randrange(self.width)
+                # Put a banana there
+                this_space[gl.BLOCK_TYPES.index('b')] += 1
             # Remove all the bananas on this spot
             this_space[gl.BLOCK_TYPES.index('b')] = 0
 
@@ -182,7 +195,7 @@ class Grid:
         if len(self.monkeys) == 0:
             print('All monkeys have died.')
 
-        return surrs, actions
+        return foods, actions, surrs
 
 
     def surroundings(self, pos):

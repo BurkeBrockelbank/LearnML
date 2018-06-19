@@ -31,12 +31,14 @@ def training_data(N, paths, g):
     """
     for n in range(N):
         # Tick the monkeys
-        surroundings, actions = g.tick(2, loud=True)
+        foods, actions, surroundings = g.tick(2, loud=True)
         # Iterate through the paths, surroundings, and actions
-        for path, surr, action in zip(paths, surroundings, actions):
+        for path, food, action, surr in zip(paths, foods, actions, surroundings):
             # Write the data to file
             outF = open(path, 'a')
             outF.write('(')
+            outF.write(str(food))
+            outF.write(',')
             outF.write(str(action))
             outF.write(',')
             surr_string = str(surr)
