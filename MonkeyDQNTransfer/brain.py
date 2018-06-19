@@ -12,7 +12,7 @@ Path: root/brain.py
 from __future__ import print_function
 from __future__ import division
 
-import torch as to
+import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
@@ -66,7 +66,7 @@ class BrainDQN(nn.Module):
         Returns:
             0: 5-tensor of qualities.
         """
-        Qs = to.randn(1,len(gl.WASD))
+        Qs = torch.randn(1,len(gl.WASD))
         return Qs
 
     def pi_greedy(self, s):

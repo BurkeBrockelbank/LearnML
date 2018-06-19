@@ -1,16 +1,43 @@
-# This impliments some supervised training for the monkey.
-#
+"""
+This is the trainer module. It includes functions for generating training data and
+performing supervised training on the brain.
+
+Project: Monkey Deep Q Recurrent Network with Transfer Learning
+Path: root/trainer.py
+"""
 
 from __future__ import print_function
 from __future__ import division
-import Roomgen
-import Monkey
-import Grid
-import Brain
-import Exceptions
-from random import randrange
+
 import torch
-import math
+import torch.nn as nn
+import matplotlib.pyplot as plt
+
+import global_variables as gl
+import exceptions
+import room_generator as rg
+
+
+def training_data(N, paths, g):
+    """
+    This generates training data for the monkey with user input. Only tracks
+    the 
+    
+    Args:
+        N: The number of ticks in the training data.
+        paths: A list of paths leading to the data files. One path must be
+            present for each monkey in the grid.
+        g: The grid to generate training data from.
+    """
+    for n in range(N):
+        # Tick the monkeys
+        surroundings, actions = g.tick(2, loud=True)
+        # Iterate through the paths, surroundings, and actions
+        for path, surr, action in zip(paths, surroundings, actions):
+            # Write the data to file
+            inF = open(path, 'a')
+            inF.write(str((action,surr)).replace('tensor','torch.tensor'))
+            inF.close()
 
 def generateTrainingDataSporadic(N, filePath,abstractMap):
     # This is a creator for generating data from the map

@@ -1,5 +1,6 @@
 """
-This is the grid module, which contains the grid class. Grid classes manage the game state.
+This is the grid module, which contains the grid class. Grid classes manage the
+game state.
 
 Project: Monkey Deep Q Recurrent Network with Transfer Learning
 Path: root/grid.py
@@ -8,7 +9,7 @@ Path: root/grid.py
 from __future__ import print_function
 from __future__ import division
 
-import torch as to
+import torch
 import torch.nn as nn
 import matplotlib.pyplot as plt
 
@@ -35,39 +36,186 @@ class Grid:
 
         Args:
             monkeys: A list of monkeys.
-            room: A channel map.
+            room: A channel map. Data type is unit8.
             place_monkeys: Default True. If True, monkeys are assumed to be
             in the channel map already. If False, monkeys are placed into the
                 channel map from their positions.
         """
-        self.monkeys = []
+        self.monkeys = monkeys
         self.channel_map = channel_map
         self.width = len(channel_map[0])
         self.height = len(channel_map)
         self.turn_count = 0
         # Add in the monkeys into the room
-        monkey_channel = self.channel_map[gl.BLOCK_TYPES.index('m')]
+        monkey_channel_index = gl.BLOCK_TYPES.index('m')
         for monkey in self.monkeys:
             i,j = monkey.pos
-            monkey_channel[i][j] += 1
+            self.channel_map[monkey_channel_index][i][j] += 1
+
+    def tick(self, control, directions = [], invincible = False, loud=True):
+        """
+        This function moves the entire grid and all the monkeys forward one
+        timestep.
+
+        Args:
+            control: If 0, the monkey is queried on its moves. If 1,
+                a list of movement directions must be given which is the same
+                length as self.monkeys. If 2, the user is queried for a
+                movment direction.
+            directions: A list of actions. One for each monkey. Only applies if
+                control is 1.
+            invincible: Default False. If true, the monkey is not removed if it
+                dies.
+
+        Raises:
+            ControlError: Raised if control is not properly defined.
+        """
+        # Report the turn if set to loud
+        if loud:
+            print('TURN', self.turn_count)
+
+        # Instantiate a list for dying monkeys
+        dead_monkeys = []
+        surrs = []
+        actions = []
+
+        # Iterate through all the monkeys
+        for monkey_index, monkey in enumerate(self.monkeys):
+            # Get the surroundings of the monkey.
+            surr = self.surroundings(monkey.pos)
+            # Print details for this tick
+            if loud:
+                # Print monkey number and number of bananas
+                print('Monkey', monkey_index, 'bananas', monkey.food, 'age', monkey.age)
+                # Get the ascii map
+                text_map = rg.channel_to_ASCII(surr,indeces=True,index_offset=monkey.pos)
+                # Print the ascii map
+                print(text_map)
+
+            # Determine control type and get action
+            if control == 2:
+                # Get user input.
+                # Loop until good input is given
+                need_input = True
+                while need_input:
+                    # Get action
+                    action_string = input('>>>')
+                    # Turn action string into an action integer
+                    try:
+                        action = gl.WASD.index(action_string)
+                        need_input = False
+                    except ValueError:
+                        print('Input must be w, a, s, d, or space.')
+            elif control == 1:
+                # Get input from a list of directions
+                try:
+                    action = directions[monkey_index]
+                except IndexError as e:
+                    raise ControlError('Directions not specified').\
+                        with_traceback(e.__traceback__)
+                if action not in range(len(gl.WASD)):
+                    raise ControlError('Action ' + str(action) + \
+                        ' for monkey ' + str(monkey_index)+' is not valid.')
+                # Print out the action if loud is on
+                if loud:
+                    # Get the string action
+                    action_string = gl.WASD[action]
+                    input('>>>'+action_string)
+            elif control == 0:
+                # Get action from monkey's brain
+                action = monkey.action(surr)
+                # Print out the action if loud is on
+                if loud:
+                    # Get the string action
+                    action_string = gl.WASD[action]
+                    input('>>>'+action_string)
+            else:
+                raise ControlError('Control must be specified as 0, 1, or 2')
+
+            # Add the surroundings and actions to the record.
+            surrs.append(surr)
+            actions.append(action)
+
+            # Now we want to move the monkey
+            monkey.move(action)
+            # Get the blocks on this space
+            this_space = self.channel_map[:][monkey.pos[0]][monkey.pos[1]]
+            # Check if the monkey is trying to move to a barrier
+            if this_space[gl.BLOCK_TYPES.index('#')] >= 1:
+                # Need to unmove the monkey.
+                monkey.unmove(action)
+                # Get the blocks on this space
+                this_space = self.channel_map[:][monkey.pos[0]][monkey.pos[1]]
+            # Feed the monkey any bananas on this spot
+            for i in range(this_space[gl.BLOCK_TYPES.index('b')]):
+                monkey.eat()
+            # Check if the monkey is in danger
+            if this_space[gl.BLOCK_TYPES.index('d')] >= 1:
+                monkey.dead = True
+            # The monkey now ages and consumes food.
+            monkey.tick()
+            # Check if the monkey is starving to death.
+            if monkey.food <= 0:
+                monkey.dead = True
+            # Check if the monkey is invincible
+            if invincible:
+                monkey.dead = False
+            # Clean up the monkey if need be
+            if monkey.dead:
+                # Mark monkey for cleanup
+                dead_monkeys.append(monkey_index)
+        # Remove dead monkeys
+        for dead_index in dead_monkeys[::-1]:
+            del monkeys[dead_index]
+        # Check if there are any monkeys left
+        if len(self.monkeys) == 0:
+            print('All monkeys have died.')
+
+        return surrs, actions
+
 
     def surroundings(self, pos):
         """
-        This function finds the surroundings of a monkey based on its sightlines.
-        the sightline is assumed to be a square matrix.
+        This function finds the surroundings of a monkey based on its
+        sightlines. The sightline is assumed to be a square matrix.
 
         Args:
-            pos: The position (integer couple) around wich we will center the map.
+            pos: The position (integer couple) around wich we will center the
+                map.
 
         Returns:
-            0: A cropped channel map.
+            0: A cropped channel map that has been obscured according to
+                gl.SIGHT.
         """
         # The first thing to do is pad the channel map with enough zeros that
-        # we could put the monkey anywhere
+        # we could put the monkey anywhere and still slice the array
         radius = len(gl.SIGHT)//2
-        padded = F.pad(self.channel_map,(radius, radius, radius, radius))
-        # Now slice the array
-        sliced = padded[pos[0]:pos[0]+len(gl.SIGHT),pos[1]:pos[1]+len(gl.SIGHT)]
+        padded = torch.zeros(self.channel_map.size(),dtype=torch.uint8)
+        for i in range(len(gl.index)):
+            # Pad the barrier channel with ones and everything else with zeros.
+            padding_value = 0
+            if i == gl.index('#'):
+                padding_value = 1
+            padded[i] = F.pad(self.channel_map[i],\
+            (radius, radius, radius, radius), value=padding_value)
+        # Note: The elements of padded do not share pointers with the elements
+        # of self.channel_map.
+        # Slice the array
+        sliced = padded[pos[0]:pos[0]+len(gl.SIGHT), \
+            pos[1]:pos[1]+len(gl.SIGHT)]
+        # Now we need to obscure any blocks that are deemed invisible.
+        for i, row in enumerate(gl.SIGHT):
+            for j, el in enumerate(row):
+                # An invisible block is marked as a zero in SIGHT
+                if el == 0:
+                    # Turn this spot into a barrier
+                    for k in range(len(gl.sight)):
+                        if k == gl.index('#'):
+                            sliced[k][i][j] = 1
+                        else:
+                            sliced[k][i][j] = 0
+        # Return the surroundings
+        return sliced
 
 
     def __str__(self):
@@ -87,300 +235,10 @@ class Grid:
         Returns:
             0: Representation string.
         """
-        return repr(self.turn_count) + repr(self.channel_map) + str(self.monkeys)
+        return repr(self.turn_count) + repr(self.channel_map) + \
+            str(self.monkeys)
 
 
 
 
-
-
-
-
-
-    def __init__(self, monkeys, monkeyPos, room):
-        self.monkeys = monkeys
-        for i, p in enumerate(monkeyPos):
-            self.monkeys[i].setPos(p)
-        self.room = room
-        self.width = len(room[0])
-        self.height = len(room)
-        self.turnCount = 0
-
-    def tick(self, trainingData = False, control='manual', wait = False,
-        directions=[], quiet = False, invincible = False):
-        """
-        Ticking function for a grid object moves all the monkeys, distributes
-        bananas, and kills monkeys if it needs to.
-
-        Args:
-            control: Must be either 'user', 'manual', or 'auto'. If control is 'manual',
-                directions must be populated with string directions of the same length
-                as the number of monkeys.
-            directions: The directions monkeys should go in if control is manual.
-            invincible: Default False. If true, monkeys are not removed after death.
-
-        Raises:
-            ControlError: Thrown in the case that the control argument is not valid.
-        """
-        if not quiet:
-            print('TURN', self.turnCount)
-        for n, monkey in enumerate(self.monkeys):
-            if not quiet:
-                print('M',n,' B',monkey.food,sep='')
-            # Let the monkeys see
-            p = monkey.pos
-            surrVec, surrMap = self.surroundingVector(p, putMonkey=True)
-            # Print the surroundingsMap
-            if not quiet:
-                print(Roomgen.concretize(surrMap,indeces=True,indexOffset=\
-                    (p[0]-len(SIGHT)//2,p[1]-len(SIGHT)//2)))
-            if control == 'user':
-                # Ask the user for their input
-                needInput = True
-                while needInput:
-                    direction = input('>>>')
-                    if direction in list(Roomgen.WASD):
-                        needInput = False
-                    else:
-                        print('Input must be w, a, s, d, or space.')
-            elif control == 'auto':
-                # Automatic control
-                x = torch.cat((torch.FloatTensor([monkey.food]),surrVec))
-                x = torch.tensor(x)
-                direction = monkey.tryMove(x)
-                if not quiet:
-                    if wait:
-                        input('>>>'+direction)
-                    else:
-                        print('>>>'+direction)
-            elif control == 'manual':
-                try:
-                    direction = directions[n]
-                except IndexError:
-                    raise Exceptions.ControlError('Directions were not given to monkey ' +str(n))
-                if not quiet:
-                    if wait:
-                        input('>>>'+direction)
-                    else:
-                        print('>>>'+direction)
-            else:
-                raise Exception.ControlError('Argument control must be in [\'user\', \'manual\', '+\
-                                            '\'auto\'] but was given as,' + str(control))
-            # We have the direction, so check if the monkey can move that way
-            monkey.move(direction)
-            if self.room[monkey.pos[0]][monkey.pos[1]] == Roomgen.ABSTRACTIONS['#']:
-                # This was a bad move
-                monkey.unmove(direction)
-            # Check if any monkeys are eating
-            if self.room[monkey.pos[0]][monkey.pos[1]] == Roomgen.ABSTRACTIONS['b']:
-                self.room[monkey.pos[0]][monkey.pos[1]] = Roomgen.ABSTRACTIONS[' ']
-                bananasToPlace = 1
-                monkey.eat(bananasToPlace)
-                # Replace the bananas
-                while bananasToPlace > 0:
-                    bi = random.randrange(len(self.room))
-                    bj = random.randrange(len(self.room[0]))
-                    if self.room[bi][bj] == Roomgen.ABSTRACTIONS[' ']:
-                        self.room[bi][bj] = Roomgen.ABSTRACTIONS['b']
-                        bananasToPlace -= 1
-            # Check if monkey fell in lava
-            if self.room[monkey.pos[0]][monkey.pos[1]] == Roomgen.ABSTRACTIONS['d']:
-                monkey.die()
-            # The monkey now expends food if it has it
-            monkey.tick()
-            # Clean up dead monkies
-            if monkey.dead and not invincible:
-                print('Monkey', n,'is dead')
-                del self.monkeys[n]
-        self.turnCount += 1
-        # Check if any living monkeys are left
-        if len(self.monkeys) == 0:
-            print('All monkeys are dead')
-            raise Exceptions.DeathError
-        return direction, surrVec
-
-    def surroundingsMap(self, pos, putMonkey=False):
-        # First we need to recenter the map to just a range
-        # that the monkey has a chance of seeing.
-        radius = len(SIGHT)//2
-        goodRows = list(range(pos[0]-radius, pos[0]+radius+1))
-        goodColumns = list(range(pos[1]-radius, pos[1]+radius+1))
-        surr = []
-        for rr in goodRows:
-            if 0 <= rr < self.height:
-                thisRow = []
-                for cc in goodColumns:
-                    if 0 <= cc < self.width:
-                        thisEl = self.room[rr][cc]
-                        # We have to check if there is a monkey here
-                        if thisEl == Roomgen.ABSTRACTIONS[' ']: #Empty space can hold monkeys
-                            for monkey in self.monkeys:
-                                if monkey.pos == (rr,cc): # There is a monkey here
-                                    thisEl = Roomgen.ABSTRACTIONS['m']
-                        thisRow.append(thisEl)
-                    else:
-                        thisRow.append(Roomgen.ABSTRACTIONS['#'])
-            else:
-                thisRow = [0]*len(goodColumns)
-            surr.append(thisRow)
-        # Now we need to block out any stuff that the monkey can't see
-        # First deal with things that are too far away.
-        for i, sightRow in enumerate(SIGHT):
-            for j, sightEl in enumerate(sightRow):
-                if sightEl == 0:
-                    surr[i][j] = Roomgen.ABSTRACTIONS['?']
-        # # Now deal with things behind barriers being hidden
-        # # Iterate through all the surroundings and find the
-        # # cones of obstruction that occur
-        # invisible = []
-        # for i, row in enumerate(surr):
-        #     invisibleRow = []
-        #     for j, el in enumerate(row):
-        #         # If you hit a barrier,
-        #         if el == Roomgen.ABSTRACTIONS['#']:
-        #             # Eliminate all the invisible places
-        #             invisibleRow.append(self.invisibleCone(radius, (radius, radius), (i,j)))
-        #         else:
-        #             invisibleRow.append([])
-        #     invisible.append(invisibleRow)
-        # # Now decide which spaces need to be hidden
-        # hiddenSpots = []
-        # for i, row in enumerate(invisible):
-        #     for j, el in enumerate(row):
-        #         for p in el:
-        #             if p not in hiddenSpots:
-        #                 if surr[p[0]][p[1]] != Roomgen.ABSTRACTIONS['#']: # We are not obscuring a barrier
-        #                     hiddenSpots.append(p)
-        #                 elif (p[0] in [i+1,i-1]) != (p[1] in [j+1,j-1]): # We are obscuring a barrier.
-        #                     # Barriers cannot normally obscure barriers that are directly adjacent
-        #                     # otherwise we would run into issues like
-        #                     # #        #   ?    
-        #                     # #        #  ???     
-        #                     # # #      # ???      
-        #                     # # #      # #?        
-        #                     # #m       #m      
-        #                     # ######## #########
-        #                     # However this leaves us with a few cases which still need to be fixed.
-        #                     # For example,
-        #                     # m ## -->    m ## instead of m #?
-        #                     # We will obscure only if there is also a barrier adjacent in the other
-        #                     # direction or it is directly in line with the monkey
-        #                     pDiff = tuple([a-b for a,b in zip(p,(i,j))])
-        #                     mDiff = tuple([a-b for a,b in zip(pos,(i,j))])
-        #                     if pDiff in [(0,1), (0,-1)]:
-        #                         # Like m
-        #                         # or   m   ##
-        #                         #      m
-        #                         # Find out which direction the monkey is (monkey is at j=radius)
-        #                         if i > radius:
-        #                             # Monkey is above
-        #                             if surr[p[0]-1][p[1]] == Roomgen.ABSTRACTIONS['#']:
-        #                                 # Obscure it
-        #                                 hiddenSpots.append(p)
-        #                         elif i == radius:
-        #                             # Monkey is beside, so obscure it
-        #                             hiddenSpots.append(p)
-        #                         else:
-        #                             # Monkey is below
-        #                             if surr[p[0]+1][p[1]] == Roomgen.ABSTRACTIONS['#']:
-        #                                 # Obscure it
-        #                                 hiddenSpots.append(p)
-        #                     else: # pDiff in [(1,0), (-1,0)]
-        #                         # Like mmm
-        #                         #       #
-        #                         #       #
-        #                         # Find out which direction the monkey is
-        #                         if j > radius:
-        #                             # Monkey is to left
-        #                             if surr[p[0]][p[1]-1] == Roomgen.ABSTRACTIONS['#']:
-        #                                 # Obscure it
-        #                                 hiddenSpots.append(p)
-        #                         elif j == radius:
-        #                             # Monkey is above/below, so obscure it
-        #                             hiddenSpots.append(p)
-        #                         else:
-        #                             # Monkey is to right
-        #                             if surr[p[0]][p[1]+1] == Roomgen.ABSTRACTIONS['#']:
-        #                                 # Obscure it
-        #                                 hiddenSpots.append(p)
-        #                 else: # Obscuring a barrier that is not adjacent (always fine)
-        #                     hiddenSpots.append(p)
-        # for p in hiddenSpots:
-        #     surr[p[0]][p[1]] = Roomgen.ABSTRACTIONS['?']
-        # Put the monkey back
-        if putMonkey:
-            surr[radius][radius] = Roomgen.ABSTRACTIONS['m']
-        return surr
-
-    def surroundingVector(self, pos, putMonkey = False):
-        sightVec = []
-        surroundingMap = self.surroundingsMap(pos, putMonkey)
-        for sightRow, surrRow in zip(SIGHT, surroundingMap):
-            for sightEl, surrEl in zip(sightRow, surrRow):
-                if sightEl == 1: #If this block is within sight range
-                    # Add the character of this block
-                    sightVec.append(surrEl)
-        # Now for each type of object, we need to have a different element space
-        xMatrix = [[0]*len(Roomgen.BLOCKTYPES) for xx in sightVec]
-        for ii, tt in enumerate(sightVec):
-            xMatrix[ii][Roomgen.ABSTRACTS.index(tt)] = 1
-        xVec = []
-        for row in xMatrix:
-            xVec += row
-        return torch.tensor(xVec), surroundingMap
-
-
-    def invisibleCone(self, radius, monkeyPos, objectPos):
-        # In this function we work in the reference frame where
-        # the monkey is at (0,0). We need to change to this coordinate
-        # system first.
-        # We start our calculations with a cartesian coordinate system
-        # where the object is up and to the right of the monkey (both
-        # coordinates positive).
-        # Not that this impolies a 90 degree rotation counter clockwise
-        p = tuple([abs(tM-tO) for tO, tM in zip(objectPos, monkeyPos)])
-        # Now we want to find the lines going from two corner's of the
-        # monkey's space (0,1) and (1,0) to two corners of the barrier's
-        # space (x,y+1) and (x+1,y)
-        invisible = []
-        # The case where the barrier is directly to the right of the monkey
-        if p[1] == 0:
-            for x in range(p[0]+1, radius+1):
-                invisible.append((x,0))
-        # The case where the barrier is directly above the monkey
-        elif p[0] == 0:
-            for y in range(p[1]+1, radius+1):
-                invisible.append((0,y))
-        else: # The case where the barrier isn't directly above the monkey
-            # l1 = lambda x: p[1]/p[0]*x+1
-            # l2 = lambda x: p[1]/p[0]*(x-1)
-            l1 = lambda x: (p[1]+0.5)/(p[0]-0.5)*x
-            l2 = lambda x: (p[1]-0.5)/(p[0]+0.5)*x
-            for x in range(p[0], radius+1):
-                for y in range(max(math.ceil(l2(x)),p[1]), min(math.floor(l1(x)), radius)+1):
-                    if x == p[0] and y==p[1]: # Don't make the original block invisible
-                        pass
-                    else:
-                        invisible.append((x,y))
-
-        #print('Cone calculation from', p, 'gives invisible places', invisible)
-        # Now we need to revert the coordinate system back to what it was
-        # first undo the reflections imposed by the absolute value
-        xMult = 1
-        if objectPos[0] < monkeyPos[0]:
-            xMult = -1
-        yMult = 1
-        if objectPos[1] < monkeyPos[1]:
-            yMult = -1
-        invisible = [(t[0]*xMult, t[1]*yMult) for t in invisible]
-        # And now shift the origin
-        invisible = [(t[0]+monkeyPos[0], t[1]+monkeyPos[1]) for t in invisible]
-        return invisible
-
-    def __repr__(self):
-        toShow = list(list(x) for x in self.room)
-        for monkey in self.monkeys:
-            i,j = monkey.pos
-            toShow[j][i] = Roomgen.ABSTRACTIONS['m']
-        return Roomgen.concretize(toShow)
 

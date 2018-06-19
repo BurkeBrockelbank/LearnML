@@ -14,7 +14,7 @@ Path: root/room_generator.py
 from __future__ import print_function
 from __future__ import division
 
-import torch as to
+import torch
 import torch.nn as nn
 
 import global_variables as gl
@@ -50,7 +50,7 @@ def ASCII_to_channel(ASCII_map):
                 with_traceback(e.__traceback__)
 
     # Initialize the channel map
-    channels = to.zeros((len(gl.BLOCK_TYPES),height, width), dtype = to.uint8)
+    channels = torch.zeros((len(gl.BLOCK_TYPES),height, width), dtype = torch.uint8)
     # Iterate through the ASCII map
     for i, row in enumerate(rows):
         for j, symbol in enumerate(row):

@@ -8,7 +8,7 @@ Path: root/main.py
 from __future__ import print_function
 from __future__ import division
 
-import torch as to
+import torch
 import torch.nn as nn
 import matplotlib.pyplot as plt
 
@@ -17,6 +17,7 @@ import exceptions
 import room_generator as rg
 import brain
 import monkey
+import grid
 
 
 # Start with the basic room
@@ -38,6 +39,19 @@ roomStartPicture =  '##################################\n'+\
                     '##################################'
 
 roomStart = rg.ASCII_to_channel(roomStartPicture)
+
+# Build grid object with monkey and brain
+monkey_brain = brain.BrainDQN()
+monkey = monkey.Monkey(monkey_brain)
+monkey.pos = (3,3)
+g = grid.Grid([monkey], roomStart)
+
+# Test out movement
+for n in range(5):
+     g.tick(2, loud=True)
+
+# Test the user control of the monkey.
+
 # # Define number of turns of memory
 # memoryLength = 15
 # # Define discount factor

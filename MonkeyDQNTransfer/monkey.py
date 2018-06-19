@@ -1,5 +1,6 @@
 """
-The monkey module contains the monkey object which holds a brain and keeps track of food, age, etc.
+The monkey module contains the monkey object which holds a brain and keeps
+track of food, age, etc.
 
 Project: Monkey Deep Q Recurrent Network with Transfer Learning
 Path: root/monkey.py
@@ -55,7 +56,7 @@ class Monkey:
         self.bananas += n
         self.food += self.food_per_eat*n
 
-    def tryMove(self, s, epsilon = -1):
+    def action(self, s, epsilon = -1):
         """
         This passes the input vector to the Brain to evaluate the policy.
 

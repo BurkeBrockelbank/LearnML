@@ -8,7 +8,7 @@ Path: root/global_variables.py
 from __future__ import print_function
 from __future__ import division
 
-import torch as to
+import torch
 
 # SIGHT =[[0,0,0,0,0,0,0,1,1,1,1,1,0,0,0,0,0,0,0],
 #         [0,0,0,0,0,1,1,1,1,1,1,1,1,1,0,0,0,0,0],
@@ -49,7 +49,8 @@ import torch as to
 #         [0,1,1,1,1,1,1,1,1,1,0],
 #         [0,0,1,1,1,1,1,1,1,0,0],
 #         [0,0,0,1,1,1,1,1,0,0,0]]
-SIGHT = to.ones((11,11), dtype=to.uint8)
+SIGHT = torch.ones((11,11), dtype=torch.uint8)
+# Note: SIGHT must be square and have an uneven number of rows.
 
 # Define the block types
 BLOCK_TYPES = ['#', 'm', 'b', 'd']
