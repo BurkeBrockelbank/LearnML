@@ -50,6 +50,96 @@ def training_data(N, paths, g):
             outF.write('\n')
             outF.close()
 
+def supervised_training(epochs, paths, g, brain, lr):
+    """
+    This performs supervised training on the monkey. 
+    
+    Args:
+        N: The number of epochs to run in training.
+        paths: A list of paths leading to the data files.
+        monkey: The brain to train.
+        gamma: The discount factor in the Bellman equation.
+        lr: The learning rate to use.
+    """
+    # First concatenate all the training data and decorrelate it by shuffling.
+    all_lines = []
+    for path in paths:
+        in_f = open(path, 'r')
+        in_lines = in_f.readlines()
+        in_f.close()
+        # parse the input lines
+        data = [eval(x) for x in in_lines]
+        all_lines.append(in_lines)
+    # As a reminder, the data structure is
+    # food (int), action (int), board state (torch.tensor torch.uint8)
+    # Now we need to calculate the quality for each of these
+    for data in all_lines:
+        food_vals = [x[0] for x in data]
+        # We now will subtract subsequent food values to get the change in food
+        food_diffs = [food_vals[i]-food_vals[i-1] for i in \
+            range(1,len(food_vals))]
+        # Delete the final row of data because it has no food difference
+        # that can be calculated 
+        new_data = data[:-1]
+        # Calculate qualities
+        quals = [0]
+        for food_diff in food_diffs[::-1]:
+            quals.append(quals[-1]*gamma+food_diff)
+        quals = quals[1:]
+        quals = quals[::-1]
+        # Insert the quality into the data
+        new_data = [(quality,) + state_tuple for state_tuple, quality \
+            in zip(new_data, quals)]
+    # Since the final quality values concatenate the series short, we should
+    # cut those data points. We will arbitrarily decide to ignore rewards which
+    # have a reduction in magnitute by a factor in the variable max_discount
+    # in global_variables.
+    n_to_cut = math.ceil(math.log(gl.max_discount)/math.log(gamma))
+    new_data = [x[:-n_to_cut] for x in new_data]
+    # And now we have processed the data
+
+    # Concatenate the data sets.
+    data_set = [el for one_path in new_data for el in one_path]
+    # Permute the data to decorrelate it.
+    data_set = random.shuffle(data_set)
+
+    # Now we do the actual learning!
+    # Define the loss function
+    criterion = torch.nn.MSELoss(size_average=False)
+    # Create an optimizer
+    optimizer = torch.optim.RMSprop(brain.parameters(), lr=lr)
+    # Iterate through epochs
+    for epoch in range(epochs):
+        # Iterate through data
+        for real_Q, food, action, vision in data_set:
+            s = (food, vision)
+            # Get the quality of the action the monkey did
+            predicted_Q = brain.Q(s,a)
+            # Calculate the loss
+            loss = criterion(predicted_Q, real_Q)
+            # Zero the gradients
+            optimizer.zero_grad()
+            # perform a backward pass
+            loss.backward()
+            # Update the weights
+            optimizer.step()
+
+
+    for epoch in range(N):
+        # Forward pass: Compute predicted y by passing x to the model
+        QPrediction = brain(s, a)
+        # Compute and print loss
+        loss = criterion(QPrediction, Q)
+        if reports != 0:
+            if (N-epoch-1)%(reportEvery) == 0:
+                if not quiet:
+                    print(epoch, loss.item())
+                reportList.append((epoch, loss.item()))
+        # Zero gradients, perform a backward pass, and update the weights.
+        optimizer.zero_grad()
+        loss.backward()
+        optimizer.step()
+
 def generateTrainingDataSporadic(N, filePath,abstractMap):
     # This is a creator for generating data from the map
     # The monkey starts at a random location each tick

@@ -26,7 +26,7 @@ class Monkey:
         self.food = 20
         self.dead = False
         self.pos = (0,0)
-        self.food_per_banana = 6
+        self.food_per_banana = 5
         self.food_per_turn = 1
         self.brain = brain
         # Epsilon initialized to -1 guarantees that the policy will never
@@ -48,13 +48,18 @@ class Monkey:
 
     def eat(self, n):
         """
-        Run this function to give the monkey a banana.
+        Run this function to give the monkey bananas.
 
         Args:
             n: The number of bananas to give the monkey.
+
+        Returns:
+            0: The number of bananas the monkey didn't want.
         """
+        # Eat all of the bananas
         self.bananas += n
         self.food += self.food_per_banana*n
+        return 0
 
     def action(self, s, epsilon = -1):
         """

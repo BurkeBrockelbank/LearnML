@@ -160,16 +160,31 @@ class Grid:
                 this_space = self.channel_map[:,monkey.pos[0],monkey.pos[1]]
 
             # Feed the monkey any bananas on this spot
-            monkey.eat(this_space[gl.BLOCK_TYPES.index('b')])
+            remaining_bananas = \
+                monkey.eat(int(this_space[gl.BLOCK_TYPES.index('b')]))
+            eaten_bananas = this_space[gl.BLOCK_TYPES.index('b')] - \
+                remaining_bananas
             # Randomly put new bananas around
-            for banana_index in range(this_space[gl.BLOCK_TYPES.index('b')]):
-                # Get two random indeces
-                i = random.randrange(self.height)
-                j = random.randrange(self.width)
+            for banana_index in range(eaten_bananas):
+                banana_placed = False
+                while not banana_placed:
+                    # Get two random indeces
+                    i = random.randrange(self.height)
+                    j = random.randrange(self.width)
+                    # Make sure the spot is empty
+                    empty_spots = self.channel_map[:,i,j] == \
+                        torch.zeros(len(gl.BLOCK_TYPES), dtype = torch.uint8)
+                    # Bananas and monkeys are alright, but we can't put a
+                    # banana in a barrier or danger.
+                    barrier_empty = empty_spots[gl.BLOCK_TYPES.index('#')]\
+                        .item()
+                    danger_empty = empty_spots[gl.BLOCK_TYPES.index('d')]\
+                        .item()
+                    banana_placed = bool(barrier_empty and danger_empty)
                 # Put a banana there
-                this_space[gl.BLOCK_TYPES.index('b')] += 1
-            # Remove all the bananas on this spot
-            this_space[gl.BLOCK_TYPES.index('b')] = 0
+                self.channel_map[gl.BLOCK_TYPES.index('b'),i,j] += 1
+            # Remove all the eaten bananas on this spot
+            this_space[gl.BLOCK_TYPES.index('b')] = remaining_bananas
 
             # Check if the monkey is in danger
             if this_space[gl.BLOCK_TYPES.index('d')] >= 1:
@@ -195,6 +210,8 @@ class Grid:
         if len(self.monkeys) == 0:
             print('All monkeys have died.')
 
+        # Update the turn count.
+        self.turn_count += 1
         return foods, actions, surrs
 
 

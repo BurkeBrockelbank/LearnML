@@ -35,7 +35,11 @@ class BrainDQN(nn.Module):
     will NOT be in the form tensor([s1, s2, s3, s4, ...]) where sn is the nth
     state.
 
-    s is a 3-tensor. The first index refers to channel, the second to row, and
+    s is a tuple (food, vision).
+
+    food is an integer.
+
+    vision is a 3-tensor. The first index refers to channel, the second to row, and
     the third to column.
 
     a is an integer 1-tensor corresponding to the
@@ -56,6 +60,9 @@ class BrainDQN(nn.Module):
         # Set the default policy
         self.pi = self.pi_epsilon_greedy
 
+        # Initialize the neural network
+        
+
     def forward(self, s):
         """
         Returns the 5-tensor of qualities corresponding to each direction.
@@ -66,6 +73,8 @@ class BrainDQN(nn.Module):
         Returns:
             0: 5-tensor of qualities.
         """
+        # Unpack the state
+        food, vision = s
         Qs = torch.randn(1,len(gl.WASD))
         return Qs
 

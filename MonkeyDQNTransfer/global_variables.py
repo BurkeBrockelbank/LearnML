@@ -58,3 +58,23 @@ EMPTY_SYMBOL = ' '
 
 # Define movement symbols
 WASD = 'wasd '
+
+# Start with the basic room
+room_start_ASCII =  '##################################\n'+\
+                    '#  b                   #  b      #\n'+\
+                    '#          d  b        #     b   #\n'+\
+                    '#    b                  d        #\n'+\
+                    '#                 b    #         #\n'+\
+                    '###########     b      #    d  b #\n'+\
+                    '#          #           #  b      #\n'+\
+                    '#  b        #      ########    ###\n'+\
+                    '#    b           #      #        #\n'+\
+                    '#          b    d     b        b #\n'+\
+                    '#              #         b       #\n'+\
+                    '#      d      #    dd      b     #\n'+\
+                    '#    b d     #                   #\n'+\
+                    '#      d          b      b     ###\n'+\
+                    '#         b     #           ######\n'+\
+                    '##################################'
+
+max_discount = 0.1

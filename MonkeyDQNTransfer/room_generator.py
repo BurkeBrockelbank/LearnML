@@ -92,12 +92,12 @@ def channel_to_ASCII(channel_map,indeces=False,index_offset=(0,0)):
         map_picture = ''
         # The first row shows the digits in the tens place and higher
         d10 = lambda x : x-x%10
-        mapPicture = ' '*len(str(d10(index_offset[0])))+'  '+\
+        map_picture += ' '*len(str(d10(index_offset[0])))+'  '+\
             str(d10(index_offset[1]))+'+\n '+\
             ' '*len(str(d10(index_offset[0])))+' '
         # The second row has the ones digit
-        for i in range(len(basic_map[0])):
-            map_picture += str((index_offset[1]+i)%10)
+        for j in range(len(basic_map[0])):
+            map_picture += str((j-index_offset[1]+1)%10)
         map_picture += '\n'
         # Now we need to find the tens and higher places for the vertical
         # direction.
@@ -106,7 +106,7 @@ def channel_to_ASCII(channel_map,indeces=False,index_offset=(0,0)):
                 map_picture += str(d10(index_offset[0]))+'+'
             else:
                 map_picture += ' '*len(str(d10(index_offset[0])))+' '
-            map_picture += str((index_offset[0]+i)%10)
+            map_picture += str((i-index_offset[0]+1)%10)
             map_picture += basic_map[i]
             map_picture += '\n'
         return map_picture.rstrip()
@@ -148,7 +148,7 @@ def channel_to_ASCII(channel_map,indeces=False,index_offset=(0,0)):
                 if channels[maxIndex] != 0:
                     # If there is any danger here, it needs to be shown,
                     # regardless of the maximum index.
-                    if channels[gl.BLOCK_TYPES.index('d')] >= 0:
+                    if channels[gl.BLOCK_TYPES.index('d')] > 0:
                         symbol = 'd'
                     else:
                         # Otherwise we will add the block here
