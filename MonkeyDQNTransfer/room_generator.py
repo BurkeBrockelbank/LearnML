@@ -86,6 +86,8 @@ def channel_to_ASCII(channel_map,indeces=False,index_offset=(0,0)):
     # If we are asking for indeces, we will first need to call this function
     # with no optional arguments to get the basic map.
     if indeces:
+        # Calculate the size of the sightrange
+        radius = len(gl.SIGHT)
         # Get the basic map through a recursive call and split into rows
         basic_map = channel_to_ASCII(channel_map).split('\n')
         # Initialize the map picture
@@ -97,7 +99,7 @@ def channel_to_ASCII(channel_map,indeces=False,index_offset=(0,0)):
             ' '*len(str(d10(index_offset[0])))+' '
         # The second row has the ones digit
         for j in range(len(basic_map[0])):
-            map_picture += str((j-index_offset[1]+1)%10)
+            map_picture += str((j+index_offset[1]-radius)%10)
         map_picture += '\n'
         # Now we need to find the tens and higher places for the vertical
         # direction.
@@ -106,7 +108,7 @@ def channel_to_ASCII(channel_map,indeces=False,index_offset=(0,0)):
                 map_picture += str(d10(index_offset[0]))+'+'
             else:
                 map_picture += ' '*len(str(d10(index_offset[0])))+' '
-            map_picture += str((i-index_offset[0]+1)%10)
+            map_picture += str((i+index_offset[0]-radius)%10)
             map_picture += basic_map[i]
             map_picture += '\n'
         return map_picture.rstrip()
