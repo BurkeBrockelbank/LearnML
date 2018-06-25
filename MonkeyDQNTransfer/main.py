@@ -29,8 +29,11 @@ if __name__ == "__main__":
      monkey.pos = (3,3)
      g = grid.Grid([monkey], room_start)
 
-     # Generate training data
-     train.training_data(1000,['throwaway.txt'], g)
+     # # Generate training data
+     # train.training_data(1000,['throwaway.txt'], g)
+
+     # Supervised monkey training
+     train.supervised_training(20, ['data_channels.txt'], monkey_brain, 0.01)
 
      # # Test the user control of the monkey.
 
