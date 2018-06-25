@@ -17,6 +17,9 @@ import global_variables as gl
 import exceptions
 import room_generator as rg
 
+import math
+import random
+
 
 def training_data(N, paths, g):
     """
@@ -50,7 +53,7 @@ def training_data(N, paths, g):
             outF.write('\n')
             outF.close()
 
-def supervised_training(epochs, paths, brain, lr):
+def supervised_training(epochs, paths, brain, gamma, lr):
     """
     This performs supervised training on the monkey. 
     
@@ -68,11 +71,12 @@ def supervised_training(epochs, paths, brain, lr):
         in_lines = in_f.readlines()
         in_f.close()
         # parse the input lines
-        data = [eval(x) for x in in_lines]
-        all_lines.append(in_lines)
+        data = [eval(x.rstrip()) for x in in_lines]
+        all_lines.append(data)
     # As a reminder, the data structure is
     # food (int), action (int), board state (torch.tensor torch.uint8)
     # Now we need to calculate the quality for each of these
+    all_data = []
     for data in all_lines:
         food_vals = [x[0] for x in data]
         # We now will subtract subsequent food values to get the change in food
@@ -90,16 +94,22 @@ def supervised_training(epochs, paths, brain, lr):
         # Insert the quality into the data
         new_data = [(quality,) + state_tuple for state_tuple, quality \
             in zip(new_data, quals)]
+        # Add to the list of data sets
+        all_data.append(new_data)
     # Since the final quality values concatenate the series short, we should
     # cut those data points. We will arbitrarily decide to ignore rewards which
     # have a reduction in magnitute by a factor in the variable max_discount
     # in global_variables.
     n_to_cut = math.ceil(math.log(gl.max_discount)/math.log(gamma))
-    new_data = [x[:-n_to_cut] for x in new_data]
+    all_data = [x[:-n_to_cut] for x in all_data]
     # And now we have processed the data
 
     # Concatenate the data sets.
-    data_set = [el for one_path in new_data for el in one_path]
+    data_set = [el for one_path in all_data for el in one_path]
+
+    print(len(data_set))
+    for x in data_set[:10]:
+        print(str(x)[:50])
     # Permute the data to decorrelate it.
     data_set = random.shuffle(data_set)
 

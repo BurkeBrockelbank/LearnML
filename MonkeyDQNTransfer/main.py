@@ -33,7 +33,7 @@ if __name__ == "__main__":
      # train.training_data(1000,['throwaway.txt'], g)
 
      # Supervised monkey training
-     train.supervised_training(20, ['data_channels.txt'], monkey_brain, 0.01)
+     train.supervised_training(20, ['data_channels.txt'], monkey_brain, 0.8, 0.01)
 
      # # Test the user control of the monkey.
 
