@@ -113,18 +113,21 @@ def supervised_training(epochs, paths, brain, gamma, lr):
 
     # Now we do the actual learning!
     # Define the loss function
-    criterion = torch.nn.MSELoss(size_average=False)
+    criterion = nn.MSELoss(size_average=False)
     # Create an optimizer
     optimizer = torch.optim.RMSprop(brain.parameters(), lr=lr)
-    # # Iterate through epochs
-    # for epoch in range(epochs):
-    #     # Iterate through data
-    #     for real_Q, food, action, vision in data_set:
-    #         s = (food, vision)
-    #         # Get the quality of the action the monkey did
-    #         predicted_Q = brain.Q(s,a)
-    #         # Calculate the loss
-    #         loss = criterion(predicted_Q, real_Q)
+    # Iterate through epochs
+    for epoch in range(epochs):
+        # Iterate through data
+        for real_Q, food, action, vision in data_set:
+            s = (food, vision)
+            # Get the quality of the action the monkey did
+            predicted_Q = brain.Q(s,action)
+            # Calculate the loss
+            loss = criterion(predicted_Q, real_Q)
+            print(predicted_Q, real_Q)
+            print(loss)
+            exit()
     #         # Zero the gradients
     #         optimizer.zero_grad()
     #         # perform a backward pass

@@ -61,17 +61,18 @@ class BrainDQN(nn.Module):
         # Set the default policy
         self.pi = self.pi_epsilon_greedy
 
-        # Initialize the neural network
-        # Part 1: Desire Mapping
-        self.DM_weight = layers.FoodWeight(3, len(gl.SIGHT), len(gl.SIGHT[0]))
-        self.DM_conv = nn.Conv2d(3, 1, 3, stride=2)
-        # Part 2: Path Finding
-        self.PF_conv1 = nn.Conv2d(2, 4, 3)
-        self.PF_conv2 = nn.Conv2d(4, 1, 5)
-        # Part 3: Evaluation
-        self.E_linear1 = nn.Linear(50,8)
-        self.E_linear2 = nn.Linear(8,5)
+        # # Initialize the neural network
+        # # Part 1: Desire Mapping
+        # self.DM_weight = layers.FoodWeight(3, len(gl.SIGHT), len(gl.SIGHT[0]))
+        # self.DM_conv = nn.Conv2d(3, 1, 3, stride=2)
+        # # Part 2: Path Finding
+        # self.PF_conv1 = nn.Conv2d(2, 4, 3)
+        # self.PF_conv2 = nn.Conv2d(4, 1, 5)
+        # # Part 3: Evaluation
+        # self.EV_linear1 = nn.Linear(50,8)
+        # self.EV_linear2 = nn.Linear(8,5)
         
+        self.foo_lin = nn.Linear(484,5)
 
     def forward(self, s):
         """
@@ -86,13 +87,37 @@ class BrainDQN(nn.Module):
         # Unpack the state
         food, vision = s
         
-        # Do path finding first
-        # Get the correct input channels
-        path_channels = vision.index_select(0,torch.tensor(\
-            [gl.INDEX_BARRIER, gl.INDEX_DANGER]))
-        # Put through a 2d convolution
+        # # Part 1: Desire Mapping
+        # # Get the correct input channels
+        # # DM_channels = vision.index_select(0,torch.tensor(\
+        # #     [gl.INDEX_MONKEY, gl.INDEX_BANANA, gl.INDEX_DANGER]))
+        # # # Weight the channels
+        # # DM_weighted = self.DM_weight(food, DM_channels)
+        # # DM_weighted = F.relu(DM_weighted)
+        # # # Build desire map
+        # # # Need to add another dimension with None indexing
+        # # DM_desire_map = self.DM_conv(DM_weighted[None])
 
-        Qs = torch.randn(1,len(gl.WASD))
+        # # Part 2: Path Finding
+        # # Get the correct input channels
+        # PF_channels = vision.index_select(0,torch.tensor(\
+        #     [gl.INDEX_BARRIER, gl.INDEX_DANGER]))
+        # # Find walls
+        # PF_walls = self.PF_conv1(PF_channels[None].type(torch.FloatTensor))
+        # PF_walls = F.sigmoid(PF_walls)
+        # # Determine passability
+        # PF_path_map = self.PF_conv2(PF_walls)
+        # PF_path_map = F.relu(PF_path_map)
+
+        # # Part 3： Evaluation
+        # # Flatten
+        # EV_flat = torch.cat((DM_desire_map.view(-1), PF_path_map.view(-1)), 0)
+        # # Fully connected ReLU layers
+        # h = F.relu(self.EV_linear1(EV_flat))
+        # Qs = F.relu(self.EV_linear2(h))
+        foo_flat = vision.view(-1).type(torch.FloatTensor)
+        return self.foo_lin(foo_flat)
+
         return Qs
 
     def pi_greedy(self, s):
