@@ -61,6 +61,7 @@ class BrainDQN(nn.Module):
         self.pi = self.pi_epsilon_greedy
 
         # Initialize the neural network
+        self.test_linear = torch.nn.Linear(2, 1)
         
 
     def forward(self, s):
@@ -75,6 +76,10 @@ class BrainDQN(nn.Module):
         """
         # Unpack the state
         food, vision = s
+        # Unpack channels
+        barrier_channel = vision[gl.INDEX_BARRIER]
+        # Do path finding first
+
         Qs = torch.randn(1,len(gl.WASD))
         return Qs
 

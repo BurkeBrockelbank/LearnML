@@ -52,7 +52,7 @@ class Grid:
         Puts the monkeys in their place in the channel map.\
         """
         # Find the right channel
-        monkey_channel_index = gl.BLOCK_TYPES.index('m')
+        monkey_channel_index = gl.INDEX_MONKEY
         # Clear all the monkeys
         self.channel_map[monkey_channel_index] = torch.zeros(\
             self.channel_map[0].size(), dtype = torch.uint8)
@@ -153,7 +153,7 @@ class Grid:
             # Get the blocks on this space
             this_space = self.channel_map[:,monkey.pos[0],monkey.pos[1]]
             # Check if the monkey is trying to move to a barrier
-            if this_space[gl.BLOCK_TYPES.index('#')] >= 1:
+            if this_space[gl.INDEX_BARRIER] >= 1:
                 # Need to unmove the monkey.
                 monkey.unmove(action)
                 # Get the blocks on this space
@@ -161,8 +161,8 @@ class Grid:
 
             # Feed the monkey any bananas on this spot
             remaining_bananas = \
-                monkey.eat(int(this_space[gl.BLOCK_TYPES.index('b')]))
-            eaten_bananas = this_space[gl.BLOCK_TYPES.index('b')] - \
+                monkey.eat(int(this_space[gl.INDEX_BANANA]))
+            eaten_bananas = this_space[gl.INDEX_BANANA] - \
                 remaining_bananas
             # Randomly put new bananas around
             for banana_index in range(eaten_bananas):
@@ -176,18 +176,18 @@ class Grid:
                         torch.zeros(len(gl.BLOCK_TYPES), dtype = torch.uint8)
                     # Bananas and monkeys are alright, but we can't put a
                     # banana in a barrier or danger.
-                    barrier_empty = empty_spots[gl.BLOCK_TYPES.index('#')]\
+                    barrier_empty = empty_spots[gl.INDEX_BARRIER]\
                         .item()
-                    danger_empty = empty_spots[gl.BLOCK_TYPES.index('d')]\
+                    danger_empty = empty_spots[gl.INDEX_DANGER]\
                         .item()
                     banana_placed = bool(barrier_empty and danger_empty)
                 # Put a banana there
-                self.channel_map[gl.BLOCK_TYPES.index('b'),i,j] += 1
+                self.channel_map[gl.INDEX_BANANA,i,j] += 1
             # Remove all the eaten bananas on this spot
-            this_space[gl.BLOCK_TYPES.index('b')] = remaining_bananas
+            this_space[gl.INDEX_BANANA] = remaining_bananas
 
             # Check if the monkey is in danger
-            if this_space[gl.BLOCK_TYPES.index('d')] >= 1:
+            if this_space[gl.INDEX_BANANA] >= 1:
                 monkey.dead = True
             # The monkey now ages and consumes food.
             monkey.tick()
@@ -238,7 +238,7 @@ class Grid:
         for i in range(len(gl.BLOCK_TYPES)):
             # Pad the barrier channel with ones and everything else with zeros.
             padding_value = 0
-            if i == gl.BLOCK_TYPES.index('#'):
+            if i == gl.INDEX_BARRIER:
                 padding_value = 1
             padded[i] = F.pad(self.channel_map[i],\
             (radius, radius, radius, radius), value=padding_value)

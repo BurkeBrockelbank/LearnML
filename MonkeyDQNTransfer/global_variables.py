@@ -56,6 +56,12 @@ SIGHT = torch.ones((11,11), dtype=torch.uint8)
 BLOCK_TYPES = ['#', 'm', 'b', 'd']
 EMPTY_SYMBOL = ' '
 
+# Get indeces for the block types
+INDEX_BARRIER = BLOCK_TYPES.index('#')
+INDEX_MONKEY = BLOCK_TYPES.index('m')
+INDEX_BANANA = BLOCK_TYPES.index('b')
+INDEX_DANGER = BLOCK_TYPES.index('d')
+
 # Define movement symbols
 WASD = 'wasd '
 

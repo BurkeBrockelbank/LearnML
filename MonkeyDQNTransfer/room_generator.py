@@ -150,7 +150,7 @@ def channel_to_ASCII(channel_map,indeces=False,index_offset=(0,0)):
                 if channels[maxIndex] != 0:
                     # If there is any danger here, it needs to be shown,
                     # regardless of the maximum index.
-                    if channels[gl.BLOCK_TYPES.index('d')] > 0:
+                    if channels[gl.INDEX_DANGER] > 0:
                         symbol = 'd'
                     else:
                         # Otherwise we will add the block here

@@ -107,17 +107,15 @@ def supervised_training(epochs, paths, brain, gamma, lr):
     # Concatenate the data sets.
     data_set = [el for one_path in all_data for el in one_path]
 
-    print(len(data_set))
-    for x in data_set[:10]:
-        print(str(x)[:50])
     # Permute the data to decorrelate it.
-    data_set = random.shuffle(data_set)
+    random.shuffle(data_set)
 
-    # # Now we do the actual learning!
-    # # Define the loss function
-    # criterion = torch.nn.MSELoss(size_average=False)
-    # # Create an optimizer
-    # optimizer = torch.optim.RMSprop(brain.parameters(), lr=lr)
+
+    # Now we do the actual learning!
+    # Define the loss function
+    criterion = torch.nn.MSELoss(size_average=False)
+    # Create an optimizer
+    optimizer = torch.optim.RMSprop(brain.parameters(), lr=lr)
     # # Iterate through epochs
     # for epoch in range(epochs):
     #     # Iterate through data
