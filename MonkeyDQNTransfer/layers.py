@@ -57,9 +57,9 @@ class FoodWeight(nn.Module):
             self.bias.expand_as(food_channel_sum)
 
     def extra_repr(self):
-        return 'height={}, width={}, food_weight={}, channel_weight={}, \
+        return 'height={}, width={}, food_weight={}, channel_weights={}, \
             bias={}'.format(self.height, self.width, self.food_weight, \
-                self.channel_weight, self.bias is not None)
+                self.channel_weights, self.bias is not None)
 
 
 

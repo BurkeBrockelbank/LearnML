@@ -20,6 +20,11 @@ import monkey
 import grid
 import train
 
+def dump_parameters(brain, path):
+     out_F = open(path, 'w')
+     out_F.write(str(list(brain.parameters())))
+     out_F.close()
+
 if __name__ == "__main__":
      # Import the ASCII map.
      room_start = rg.ASCII_to_channel(gl.room_start_ASCII)
@@ -33,7 +38,9 @@ if __name__ == "__main__":
      # train.training_data(1000,['throwaway.txt'], g)
 
      # Supervised monkey training
-     train.supervised_training(20, ['data_channels.txt'], monkey_brain, 0.8, 0.01)
+     dump_parameters(monkey_brain, 'brain0.txt')
+     train.supervised_training(50, ['data_channels.txt'], monkey_brain, 0.8, 0.01)
+     dump_parameters(monkey_brain, 'brain1.txt')
 
      # # Test the user control of the monkey.
 
@@ -50,9 +57,6 @@ if __name__ == "__main__":
 
      # # Load brain from permanent memory
      # brain.load_state_dict(torch.load('brainsave.txt'))
-
-     # # Train the monkey with deep Q learning
-     # Trainer.trainDQN(500, g, gamma, 0.2, 0.05, 100, memoryLength, lr=0.001,loud=True,showEvery=1000)
 
      # # Train the monkey
      # for ii in range(10):

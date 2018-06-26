@@ -64,6 +64,8 @@ def supervised_training(epochs, paths, brain, gamma, lr):
         gamma: The discount factor in the Bellman equation.
         lr: The learning rate to use.
     """
+    # Set the brain to training mode
+    brain.train()
     # First concatenate all the training data and decorrelate it by shuffling.
     all_lines = []
     for path in paths:
@@ -92,7 +94,7 @@ def supervised_training(epochs, paths, brain, gamma, lr):
         quals = quals[1:]
         quals = quals[::-1]
         # Insert the quality into the data
-        new_data = [(quality,) + state_tuple for state_tuple, quality \
+        new_data = [(torch.tensor(quality),) + state_tuple for state_tuple, quality \
             in zip(new_data, quals)]
         # Add to the list of data sets
         all_data.append(new_data)
@@ -110,14 +112,14 @@ def supervised_training(epochs, paths, brain, gamma, lr):
     # Permute the data to decorrelate it.
     random.shuffle(data_set)
 
-
     # Now we do the actual learning!
     # Define the loss function
-    criterion = nn.MSELoss(size_average=False)
+    criterion = nn.SmoothL1Loss(size_average=False)
     # Create an optimizer
     optimizer = torch.optim.RMSprop(brain.parameters(), lr=lr)
     # Iterate through epochs
     for epoch in range(epochs):
+        total_loss = 0
         # Iterate through data
         for real_Q, food, action, vision in data_set:
             s = (food, vision)
@@ -125,15 +127,26 @@ def supervised_training(epochs, paths, brain, gamma, lr):
             predicted_Q = brain.Q(s,action)
             # Calculate the loss
             loss = criterion(predicted_Q, real_Q)
-            print(predicted_Q, real_Q)
-            print(loss)
-            exit()
-    #         # Zero the gradients
-    #         optimizer.zero_grad()
-    #         # perform a backward pass
-    #         loss.backward()
-    #         # Update the weights
-    #         optimizer.step()
+            if loss > 1000:
+                # There is some issue with the network occasionally spitting
+                # out huge values. We will cap the maximum value. This is
+                # done by recalculating the loss with something designed to
+                # just be just 1000 away from the prediction. To get this
+                # value, we need to pull the value from predicted_Q and
+                # remove its needs_gradient property. This is done by casting
+                # to a floating point number.
+                raise RuntimeWarning('Loss has been calculated as ridiculous.')
+                loss = criterion(predicted_Q, \
+                    torch.FloatTensor(float(predicted_Q)-1000))
+            # Zero the gradients
+            optimizer.zero_grad()
+            # perform a backward pass
+            loss.backward()
+            # Update the weights
+            optimizer.step()
+            #
+            total_loss += float(loss)
+        print('Epoch', epoch, 'loss', total_loss/len(data_set))
 
 
     # for epoch in range(N):
