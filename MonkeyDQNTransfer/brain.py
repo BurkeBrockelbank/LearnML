@@ -19,6 +19,7 @@ import torch.nn.functional as F
 import global_variables as gl
 import exceptions
 import room_generator as rg
+import layers
 
 import random
 import bisect
@@ -61,7 +62,15 @@ class BrainDQN(nn.Module):
         self.pi = self.pi_epsilon_greedy
 
         # Initialize the neural network
-        self.test_linear = torch.nn.Linear(2, 1)
+        # Part 1: Desire Mapping
+        self.DM_weight = layers.FoodWeight(3, len(gl.SIGHT), len(gl.SIGHT[0]))
+        self.DM_conv = nn.Conv2d(3, 1, 3, stride=2)
+        # Part 2: Path Finding
+        self.PF_conv1 = nn.Conv2d(2, 4, 3)
+        self.PF_conv2 = nn.Conv2d(4, 1, 5)
+        # Part 3: Evaluation
+        self.E_linear1 = nn.Linear(50,8)
+        self.E_linear2 = nn.Linear(8,5)
         
 
     def forward(self, s):
@@ -76,9 +85,12 @@ class BrainDQN(nn.Module):
         """
         # Unpack the state
         food, vision = s
-        # Unpack channels
-        barrier_channel = vision[gl.INDEX_BARRIER]
+        
         # Do path finding first
+        # Get the correct input channels
+        path_channels = vision.index_select(0,torch.tensor(\
+            [gl.INDEX_BARRIER, gl.INDEX_DANGER]))
+        # Put through a 2d convolution
 
         Qs = torch.randn(1,len(gl.WASD))
         return Qs
