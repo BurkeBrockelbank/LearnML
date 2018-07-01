@@ -58,19 +58,6 @@ class BrainDQN(nn.Module):
         """
         # Initialize the parent class
         super(BrainDQN, self).__init__()
-        # Set the default policy
-        self.pi = self.pi_epsilon_greedy
-
-        # Initialize the neural network
-        # Part 1: Desire Mapping
-        self.DM_weight = layers.FoodWeight(3, len(gl.SIGHT), len(gl.SIGHT[0]))
-        self.DM_conv = nn.Conv2d(3, 1, 3, stride=2)
-        # Part 2: Path Finding
-        self.PF_conv1 = nn.Conv2d(2, 4, 3)
-        self.PF_conv2 = nn.Conv2d(4, 1, 5)
-        # Part 3: Evaluation
-        self.EV_linear1 = nn.Linear(50,8)
-        self.EV_linear2 = nn.Linear(8,5)
 
     def forward(self, s):
         """
@@ -81,40 +68,12 @@ class BrainDQN(nn.Module):
         
         Returns:
             0: 5-tensor of qualities.
+
+        Raises:
+            BrainError: This is only meant to be a parent class. Using this class
+            as if it were functional should raise an error.
         """
-        # Unpack the state
-        food, vision = s
-        
-        # Part 1: Desire Mapping
-        # Get the correct input channels.
-        DM_channels = vision.index_select(0,torch.tensor(\
-            [gl.INDEX_MONKEY, gl.INDEX_BANANA, gl.INDEX_DANGER]))
-        # Weight the channels
-        DM_weighted = self.DM_weight(food, DM_channels)
-        DM_weighted = F.relu(DM_weighted)
-        # Build desire map
-        # Need to add another dimension with None indexing
-        DM_desire_map = self.DM_conv(DM_weighted[None])
-
-        # Part 2: Path Finding
-        # Get the correct input channels
-        PF_channels = vision.index_select(0,torch.tensor(\
-            [gl.INDEX_BARRIER, gl.INDEX_DANGER]))
-        # Find walls
-        PF_walls = self.PF_conv1(PF_channels[None].type(torch.FloatTensor))
-        PF_walls = F.sigmoid(PF_walls)
-        # Determine passability
-        PF_path_map = self.PF_conv2(PF_walls)
-        PF_path_map = F.relu(PF_path_map)
-
-        # Part 3： Evaluation
-        # Flatten
-        EV_flat = torch.cat((DM_desire_map.view(-1), PF_path_map.view(-1)), 0)
-        # Fully connected ReLU layers
-        h = F.relu(self.EV_linear1(EV_flat))
-        Qs = F.relu(self.EV_linear2(h))
-
-        return Qs
+        raise exceptions.BrainError
 
     def pi_greedy(self, s):
         """
@@ -210,3 +169,123 @@ class BrainDQN(nn.Module):
         a = bisect.bisect(CDF, roll)
         # Return the quality and action.
         return Qs[a], a
+
+
+class BrainLinear(BrainDQN):
+    """
+    This implements the naive approach of the monkey brain as described in the
+    presentation. It is a simple linear model.
+
+    This brain has no memory implementation.
+    """
+
+    def __init__(self):
+        """
+        Initialize the architecture of the neural net.
+        """
+        # Initialize the parent class
+        BrainDQN.__init__(self)
+        # Set the default policy
+        self.pi = self.pi_probabilistic
+
+        # Initialize the neural network
+        # We just need to take the input size:
+        # 1 [food] + 11*11 [grid size] * 4 [number of channels] = 485
+        self.layer = nn.Linear(485,5)
+
+    def forward(self, s):
+        """
+        Returns the 5-tensor of qualities corresponding to each direction.
+
+        Args:
+            s: The state of the system.
+        
+        Returns:
+            0: 5-tensor of qualities.
+        """
+        # Unpack the state
+        food, vision = s
+        
+        # First we need to flatten out the state and add in the food.
+        vision_flat = vision.view(-1)
+        vision_float = vision_flat.type(torch.float)
+        food_float = torch.FloatTensor([food])
+        state = torch.cat((food_float,vision_float),0)
+
+        # Secondly we need to run this though the linear layer.
+        Qs = self.layer(state)
+
+        return Qs
+
+
+class BrainV1(BrainDQN):
+    """
+    This implements the first approach of the monkey brain as described in the
+    presentation.
+
+    This brain has no memory implementation.
+    """
+
+    def __init__(self):
+        """
+        Initialize the architecture of the neural net.
+        """
+        # Initialize the parent class
+        BrainDQN.__init__(self)
+        # Set the default policy
+        self.pi = self.pi_epsilon_greedy
+
+        # Initialize the neural network
+        # Part 1: Desire Mapping
+        self.DM_weight = layers.FoodWeight(3, len(gl.SIGHT), len(gl.SIGHT[0]))
+        self.DM_conv = nn.Conv2d(3, 1, 3, stride=2)
+        # Part 2: Path Finding
+        self.PF_conv1 = nn.Conv2d(2, 4, 3)
+        self.PF_conv2 = nn.Conv2d(4, 1, 5)
+        # Part 3: Evaluation
+        self.EV_linear1 = nn.Linear(50,8)
+        self.EV_linear2 = nn.Linear(8,5)
+
+    def forward(self, s):
+        """
+        Returns the 5-tensor of qualities corresponding to each direction.
+
+        Args:
+            s: The state of the system.
+        
+        Returns:
+            0: 5-tensor of qualities.
+        """
+        # Unpack the state
+        food, vision = s
+        
+        # Part 1: Desire Mapping
+        # Get the correct input channels.
+        DM_channels = vision.index_select(0,torch.tensor(\
+            [gl.INDEX_MONKEY, gl.INDEX_BANANA, gl.INDEX_DANGER]))
+        # Weight the channels
+        DM_weighted = self.DM_weight(food, DM_channels)
+        DM_weighted = F.relu(DM_weighted)
+        # Build desire map
+        # Need to add another dimension with None indexing
+        DM_desire_map = self.DM_conv(DM_weighted[None])
+
+        # Part 2: Path Finding
+        # Get the correct input channels
+        PF_channels = vision.index_select(0,torch.tensor(\
+            [gl.INDEX_BARRIER, gl.INDEX_DANGER]))
+        # Find walls
+        PF_walls = self.PF_conv1(PF_channels[None].type(torch.FloatTensor))
+        PF_walls = F.sigmoid(PF_walls)
+        # Determine passability
+        PF_path_map = self.PF_conv2(PF_walls)
+        PF_path_map = F.relu(PF_path_map)
+
+        # Part 3： Evaluation
+        # Flatten
+        EV_flat = torch.cat((DM_desire_map.view(-1), PF_path_map.view(-1)), 0)
+        # Fully connected ReLU layers
+        h = F.relu(self.EV_linear1(EV_flat))
+        Qs = F.relu(self.EV_linear2(h))
+
+        return Qs

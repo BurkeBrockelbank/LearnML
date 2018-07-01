@@ -53,7 +53,7 @@ def training_data(N, paths, g):
             outF.write('\n')
             outF.close()
 
-def supervised_training(epochs, paths, brain, gamma, lr):
+def supervised_training(epochs, paths, brain, gamma, lr, reports):
     """
     This performs supervised training on the monkey. 
     
@@ -63,6 +63,10 @@ def supervised_training(epochs, paths, brain, gamma, lr):
         brain: The brain to train.
         gamma: The discount factor in the Bellman equation.
         lr: The learning rate to use.
+
+    Returns:
+        0: Training data in the form of list of tuples. First element is epoch
+        number, second number is average loss over this epoch.
     """
     # Set the brain to training mode
     brain.train()
@@ -117,9 +121,15 @@ def supervised_training(epochs, paths, brain, gamma, lr):
     criterion = nn.SmoothL1Loss(size_average=False)
     # Create an optimizer
     optimizer = torch.optim.RMSprop(brain.parameters(), lr=lr)
+    loss_record = []
     # Iterate through epochs
     for epoch in range(epochs):
-        total_loss = 0
+        # See if we are reporting this time
+        if epoch%(epochs//reports) == epochs%(epochs//reports):
+            report_this = True
+            total_loss = 0
+        else:
+            report_this = False
         # Iterate through data
         for real_Q, food, action, vision in data_set:
             s = (food, vision)
@@ -144,181 +154,17 @@ def supervised_training(epochs, paths, brain, gamma, lr):
             loss.backward()
             # Update the weights
             optimizer.step()
-            #
-            total_loss += float(loss)
-        print('Epoch', epoch, 'loss', total_loss/len(data_set))
+            # Add to total loss
+            if report_this:
+                total_loss += float(loss)
+        # Add to loss record
+        if report_this:
+            loss_record.append((epoch, total_loss/len(data_set)))
+            print('Epoch', epoch, 'loss', total_loss/len(data_set))
 
+    return loss_record
 
-    # for epoch in range(N):
-    #     # Forward pass: Compute predicted y by passing x to the model
-    #     QPrediction = brain(s, a)
-    #     # Compute and print loss
-    #     loss = criterion(QPrediction, Q)
-    #     if reports != 0:
-    #         if (N-epoch-1)%(reportEvery) == 0:
-    #             if not quiet:
-    #                 print(epoch, loss.item())
-    #             reportList.append((epoch, loss.item()))
-    #     # Zero gradients, perform a backward pass, and update the weights.
-    #     optimizer.zero_grad()
-    #     loss.backward()
-    #     optimizer.step()
-
-def generateTrainingDataSporadic(N, filePath,abstractMap):
-    # This is a creator for generating data from the map
-    # The monkey starts at a random location each tick
-    # Create a monkey
-    b = Brain.Brain0()
-    testMonkey = Monkey.Monkey(b)
-    # Create the grid
-    g = Grid.Grid([testMonkey], [(3,3)], abstractMap)
-    testData = []
-    # Now go through a bunch of random places to put the monkey and ask the user which way to go
-    for ii in range(N):
-        blocked = True
-        while blocked :
-            position = (randrange(len(abstractMap)), randrange(len(abstractMap[0])))
-            if abstractMap[position[0]][position[1]] == Roomgen.ABSTRACTIONS[' ']:
-                blocked = False
-        # Put the monkey there
-        g.monkeys[0].setPos(position)
-        # Get the surroundings
-        surrVec, surrMap = g.surroundingVector(position, True)
-        # Print it out
-        print('Map')
-        print(Roomgen.concretize(surrp, True))
-        direction = input('>>>')
-        if direction in list(Roomgen.WASD): #Good input
-            directionVector = [0]*len(Roomgen.WASD)
-            directionVector[Roomgen.WASD.index(direction)] = 1
-            testData.append((directionVector, float(g.monkeys[0].food), surrVec.tolist()))
-            file = open(filePath, 'a')
-            file.write(repr(testData[-1]).replace('\n','').replace(' ',''))
-            if ii != N-1:
-                file.write('\n')
-            file.close()
-        else:
-            print('Bad input')
-    return testData
-
-def generateTrainingDataContinuous(N,filePath,abstractMap,saturateFood=False):
-    """
-    This is a creator for generating data from the map. The monkey retains its
-    location between ticks. The format of the data file is a one-hot integer
-    5-list, followed by a float, followed by a list of length corresponding
-    to the number of visible spaces in SIGHT.
-
-    Args:
-        N: Number of turns allowed in simulation.
-        filePath: The path to the output data file.
-        abstractMap: An abstracted map (passed through Roomgen.abstract).
-        saturateFood: Default False. If True, enough food will be given to the
-        to the monkey so it won't die of hunger during the test.
-
-    Returns:
-        0: List of all the lines in the output file with not newline character
-        at the end                 
-    """
-    # Create a monkey
-    b = Brain.Brain0()
-    testMonkey = Monkey.Monkey(b)
-    # Create the grid
-    g = Grid.Grid([testMonkey], [(3,3)], abstractMap)
-    testData = []
-    # Find a place to put the monkey
-    blocked = True
-    while blocked :
-        position = (randrange(len(abstractMap)), randrange(len(abstractMap[0])))
-        if abstractMap[position[0]][position[1]] == Roomgen.ABSTRACTIONS[' ']:
-            blocked = False
-    # Put the monkey there
-    g.monkeys[0].setPos(position)
-    print('Monkey initialized at', position)
-    if saturateFood: g.monkeys[0].food = (N+10)*g.monkeys[0].foodPerTurn
-    # Go for N turns
-    for ii in range(N):
-        # Tick
-        try:
-            direction, surrVec = g.tick(trainingData = True, control='user')
-        except Exceptions.DeathError:
-            print('Exiting training, returning test data')
-            return testData
-        # Write data
-        directionVector = [0]*len(Roomgen.WASD)
-        directionVector[Roomgen.WASD.index(direction)] = 1.0
-        testData.append((directionVector, float(g.monkeys[0].food), surrVec.tolist()))
-        file = open(filePath, 'a')
-        file.write(repr(testData[-1]).replace('\n','').replace(' ',''))
-        if ii != N-1:
-            file.write('\n')
-        file.close()
-    return testData
-
-def train(brain, filePath, N, lr = 1e-2, reports = 10, quiet = True):
-    """
-    Trains a brain.
-
-    Args:
-        brain: The brain to be trained.
-        filePath: The path to the file with the training data
-        N: Number of epochs.
-        lr: Learning rate.
-        reports: The number of times to report the progress
-
-    Returns:
-        1: A list of all the loss functions (size N)
-
-    Raises:
-        FileNotFoundError: If filePath does not point to a valid file.
-        SyntaxError: If the file is not formatted correctly.
-        DataShapeError: If the training data does not properly fit the brain.
-    """
-
-    # Determine the remainder at which we want to print the iteration number
-    if reports != 0:
-        reportEvery = N//reports
-    # Create a list for the reports
-    reportList = []
-    # Open the data file and read the data
-    inF = open(filePath, 'r')
-    dataLines = []
-    for line in inF:
-        dataLines.append(eval(line.rstrip()))
-    inF.close()
-    # Put the data into input (x) and output (y) 2d tensors. Each row is one
-    # data point (sight+food+movement)
-    x = []
-    y = []
-    for tup in dataLines:
-        y.append(tup[0])
-        x.append([tup[1]]+tup[2])
-    x = torch.tensor(x)
-    # y is a list of 1-hot lists. Let's switch this over to labels
-    y1 = torch.tensor([foo.index(1) for foo in y])
-    # Also get y
-    y = torch.FloatTensor(y)
-
-    # Define the loss function
-    criterion = torch.nn.CrossEntropyLoss()
-    # Create an optimizer
-    optimizer = torch.optim.SGD(brain.parameters(), lr)
-    for epoch in range(N):
-        # Forward pass: Compute predicted y by passing x to the model
-        y_pred = brain(x)
-        # Compute and print loss
-        loss = criterion(y_pred, y1)
-        if reports != 0:
-            if (N-epoch-1)%(reportEvery) == 0:
-                if not quiet:
-                    print(epoch, loss.item())
-                reportList.append((epoch, loss.item()))
-        # Zero gradients, perform a backward pass, and update the weights.
-        optimizer.zero_grad()
-        loss.backward()
-        optimizer.step()
-    return y_pred, loss, reportList
-
-def loadRecords(path):
+def load_records(path):
     """
     Loads in the records for loss function vs. epochs
     Args:
@@ -327,113 +173,61 @@ def loadRecords(path):
         0: A list of tuples of the form (epochs, loss)
     """
     records = []
-    inF = open(path, 'r')
-    for line in inF:
+    in_file = open(path, 'r')
+    for line in in_file:
         records.append(eval(line.rstrip()))
-    inF.close()
+    in_file.close()
     
     # Update the epoch numbers in the records
     for i in range(1, len(records)):
-        startEpoch = records[i-1][-1][0]+1
-        newEpochs = []
+        start_epoch = records[i-1][-1][0]+1
+        new_epochs = []
         for point in records[i]:
-            newEpochs.append((point[0]+startEpoch, point[1]))
-        records[i] = newEpochs
+            new_epochs.append((point[0]+start_epoch, point[1]))
+        records[i] = new_epochs
     # Join the records together
     if len(records) == 1:
         return records[0]
     else:
         return sum(records, [])
 
-def trainDQNSupervised(brain, filePath, N, memoryLength, gamma, lr = 1e-2, reports = 10, quiet = True):
+
+def dqn_training(g, N, gamma, epsilon_start, epsilon_end, n_epsilon, lr, reports, \
+    watch = False):
     """
-    Trains a brain set up for deep Q learning in a supervised way with the test data.
+    This function trains a monkey with reinforcement learning.
+
+    The DQN algorihm:
+    1) Get the policy's action.
+    2) Get the consequent state (move the monkey).
+    3) Get the immediate reward from the grid.
+    4) Calculate the loss
+        a) Calculate the quality of the move undertaken Q(s,a).
+        b) Calculate the max_a Q(s',a) where s' is the consequent
+           state of performing a from the state s.
+        c) delta = Q(s,a) - r - gamma*max_a Q(s', a)
+           where r is the immediate loss measured from the system.
+        d) Loss is the Huber loss (smooth L1 loss) of delta.
 
     Args:
-        brain: The brain to be trained.
-        filePath: The path to the file with the training data
-        N: Number of epochs.
-        memoryLength: The number of frames of memory to keep.
-        gamma: The discount for calculating the quality of a move.
-        lr: Default 0.01. Learning rate.
-        reports: The number of times to report the progress
+        g: The grid containing a monkey containing a brain of class
+            BrainDQN.
+        N: The number of iterations of training to do.
+        gamma: The discount for the Bellman equation.
+        epsilon_start: The initial value for epsilon for the epsilon-greedy
+            policy.
+        epsilon_end: The final value for epsilon.
+        n_epsilon: The decay rate for epsilon.
+        lr: The learning rate.
+        reports: The number of data points in the loss report.
+        watch: Default False. If True, will wait for the user to look at every
+            iteration of the training.
 
     Returns:
-        1: A list of all the loss functions (size N)
-
-    Raises:
-        FileNotFoundError: If filePath does not point to a valid file.
-        SyntaxError: If the file is not formatted correctly.
-        DataShapeError: If the training data does not properly fit the brain.
+        0: Training data in the form of list of tuples. First element is
+        iteration number, second number is average loss over the
+        iterations leading up to this report.
     """
-
-    # Determine the remainder at which we want to print the iteration number
-    if reports != 0:
-        reportEvery = N//reports
-    # Create a list for the reports
-    reportList = []
-
-    # Open the data file and read the data
-    inF = open(filePath, 'r')
-    dataLines = []
-    for line in inF:
-        dataLines.append(eval(line.rstrip()))
-    inF.close()
-    # Put the data into input (x) and output (y) 2d tensors. Each row is one
-    # data point (sight+food+movement)
-    x = []
-    a = []
-    for tup in dataLines:
-        a.append(tup[0])
-        x.append([tup[1]]+tup[2])
-    x = torch.tensor(x)
-    a = torch.tensor(a)
-
-    # We need to group the training data into sets with memory.
-    sValues = []
-    for i in range(memoryLength, x.size()[0]):
-        thisMemory = x[i-memoryLength:i]
-        sValues.append(torch.cat(tuple(thisMemory)).float())
-    s = torch.stack(sValues)
-
-    # Calculate the immediate reward of each move
-    r = [x[i][0]-x[i-1][0] for i in range(memoryLength, x.size()[0])]
-    # Calculate the real quality of the move
-    Q = [r[-1]]
-    for rVal in r[-2::-1]:
-        Q.append(gamma*Q[-1]+rVal)
-    Q = Q[::-1]
-    # Find out where to stop (we don't want to train uless we have a quality
-    # value within about 10% of what is actually true)
-    turnsToCut = math.ceil(-1.0/math.log10(gamma))
-    Q = Q[:-turnsToCut]
-    Q = torch.stack(Q)
-    Q = Q.view((len(Q),1))
-
-    # We can cut away the unused turns of a
-    a = a[memoryLength-1:-turnsToCut-1]
-    # Cut away the unused turns of the states
-    s = s[:-turnsToCut]
-
-    # Define the loss function
-    criterion = torch.nn.MSELoss(size_average=False)
-    # Create an optimizer
-    optimizer = torch.optim.RMSprop(brain.parameters(), lr=lr)
-    for epoch in range(N):
-        # Forward pass: Compute predicted y by passing x to the model
-        QPrediction = brain(s, a)
-        # Compute and print loss
-        loss = criterion(QPrediction, Q)
-        if reports != 0:
-            if (N-epoch-1)%(reportEvery) == 0:
-                if not quiet:
-                    print(epoch, loss.item())
-                reportList.append((epoch, loss.item()))
-        # Zero gradients, perform a backward pass, and update the weights.
-        optimizer.zero_grad()
-        loss.backward()
-        optimizer.step()
-    return loss, reportList
 
 def trainDQN(N, g, gamma, epsilon0, epsilonF, nEpsilon, memoryLength,
     lr = 0.01, loud = False, showEvery=1):

@@ -28,3 +28,9 @@ class SymbolError(Exception):
     Raised for unrecognized symbols.
     """
     pass
+
+class BrainError(Exception):
+    """
+    Raised when the brain is not properly defined.
+    """
+    pass

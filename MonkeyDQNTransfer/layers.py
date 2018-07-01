@@ -27,12 +27,10 @@ class FoodWeight(nn.Module):
         self.bias = Parameter(torch.Tensor(1))
 
     def reset_parameters(self):
-        food_stdv = 1. / math.sqrt(self.food_weight.size(1))
-        channel_stdv = 1. / math.sqrt(self.channel_weight.numel())
-        self.food_weight.data.uniform_(-food_stdv, food_stdv)
-        self.food_weight.data.uniform_(-channel_stdv, channel_stdv)
+        self.food_weight.data.uniform_(-1, 1)
+        self.food_weight.data.uniform_(-1, 1)
         if self.bias is not None:
-            self.bias.data.uniform_(-food_stdv, food_stdv)
+            self.bias.data.uniform_(-1, 1)
 
     def forward(self, food, channel_map):
         """
