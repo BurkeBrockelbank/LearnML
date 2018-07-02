@@ -192,7 +192,7 @@ def load_records(path):
         return sum(records, [])
 
 
-def dqn_training(g, N, gamma, epsilon_start, epsilon_end, n_epsilon, lr, reports, \
+def dqn_training(g, N, gamma, epsilon_start, epsilon_end, n_epsilon, lr, \
     watch = False):
     """
     This function trains a monkey with reinforcement learning.
@@ -210,8 +210,8 @@ def dqn_training(g, N, gamma, epsilon_start, epsilon_end, n_epsilon, lr, reports
         d) Loss is the Huber loss (smooth L1 loss) of delta.
 
     Args:
-        g: The grid containing a monkey containing a brain of class
-            BrainDQN.
+        g: The grid containing a single monkey containing a brain of
+            superclass Brain_DQN.
         N: The number of iterations of training to do.
         gamma: The discount for the Bellman equation.
         epsilon_start: The initial value for epsilon for the epsilon-greedy
@@ -219,7 +219,6 @@ def dqn_training(g, N, gamma, epsilon_start, epsilon_end, n_epsilon, lr, reports
         epsilon_end: The final value for epsilon.
         n_epsilon: The decay rate for epsilon.
         lr: The learning rate.
-        reports: The number of data points in the loss report.
         watch: Default False. If True, will wait for the user to look at every
             iteration of the training.
 
@@ -228,6 +227,74 @@ def dqn_training(g, N, gamma, epsilon_start, epsilon_end, n_epsilon, lr, reports
         iteration number, second number is average loss over the
         iterations leading up to this report.
     """
+
+    # Instantiate total reward
+    total_reward = 0
+
+    # Calculate the state for the first time.
+    g.monkeys[0].brain.eval()
+    sight_new = g.surroundings(g.monkeys[0].pos)
+    food_new = g.monkeys[0].food
+    state_new = (food_new, sight_new)
+    Q_new, a_new, p_new = g.monkeys[0].brain.pi(state_new)
+    g.monkeys[0].brain.train()
+
+
+    # Define optimizer
+    optimizer = torch.optim.RMSprop(g.monkeys[0].brain.parameters(), lr=lr)
+
+
+    # Iterate N times
+    for n in range(N):
+        if watch:
+            print('-----------------------')
+
+        # 1) Get the policy's action.
+        Q = Q_new
+        a = a_new
+        p = p_new
+
+        # 2) Get the consequent state (move the monkey).
+        g.tick(1, directions = [a], invincible = True, loud=watch, wait=False)
+        state_old = state_new
+        sight_new = g.surroundings(g.monkeys[0].pos)
+        food_new = g.monkeys[0].food
+        state_new = (food_new, sight_new)
+
+        # 3) Get the immediate reward.
+        # Immediate reward is normally food difference.
+        r = state_new[0]-state_old[0]
+        # If the monkey is dead, it instead gets a large penalty
+        if g.monkeys[0].dead:
+            r = -50
+            g.monkeys[0].eat(5)
+            state_new = (g.monkeys[0].food, sight_new)
+            g.monkeys[0].dead = False
+        total_reward += r
+
+        # 4) Calculate the loss
+        # a) Calculate the quality of the move undertaken
+        # This was already done in part 1.
+        # b) Calculate the maximum quality of the subsequent move
+        Q_new, a_new, p_new = g.monkeys[0].brain.pi(state_new)
+        # c) Calculate the loss difference
+        delta = Q - r - gamma * Q_new
+        # d) Calculate the loss as Huber loss.
+        loss = torch.nn.functional.smooth_l1_loss(delta, torch.zeros(1))
+
+        if watch:
+            print(gl.WASD[a], 'with probability', p)
+            print('had quality', Q, 'r', r)
+            input('delta ' + str(delta))
+
+        # Optimize the model
+        optimizer.zero_grad()
+        loss.backward(retain_graph= (n!=N-1))
+        optimizer.step()
+
+    return total_reward
+
+
 
 def trainDQN(N, g, gamma, epsilon0, epsilonF, nEpsilon, memoryLength,
     lr = 0.01, loud = False, showEvery=1):

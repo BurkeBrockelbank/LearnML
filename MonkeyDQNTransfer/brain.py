@@ -156,7 +156,7 @@ class BrainDQN(nn.Module):
         # Find the qualities.
         Qs = self.forward(s)
         # Run this through a softmax
-        Q_softmax = F.softmax(Qs)
+        Q_softmax = F.softmax(Qs, dim=0)
         # Calculate the CDF.
         CDF = [Q_softmax[0]]
         # The CDF is one element shorter than the probabilities because the
@@ -168,7 +168,7 @@ class BrainDQN(nn.Module):
         # Get the action this corresponds to.
         a = bisect.bisect(CDF, roll)
         # Return the quality and action.
-        return Qs[a], a
+        return Qs[a], a, Q_softmax[a]
 
 
 class BrainLinear(BrainDQN):
@@ -207,8 +207,7 @@ class BrainLinear(BrainDQN):
         food, vision = s
         
         # First we need to flatten out the state and add in the food.
-        vision_flat = vision.view(-1)
-        vision_float = vision_flat.type(torch.float)
+        vision_float = vision.float().view(-1)
         food_float = torch.FloatTensor([food])
         state = torch.cat((food_float,vision_float),0)
 

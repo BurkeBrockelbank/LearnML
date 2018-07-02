@@ -60,7 +60,7 @@ class Grid:
             i,j = monkey.pos
             self.channel_map[monkey_channel_index][i][j] += 1
 
-    def tick(self, control, directions = [], invincible = False, loud=True):
+    def tick(self, control, directions = [], invincible = False, loud=True, wait=True):
         """
         This function moves the entire grid and all the monkeys forward one
         timestep.
@@ -74,6 +74,10 @@ class Grid:
                 control is 1.
             invincible: Default False. If true, the monkey is not removed if it
                 dies.
+            loud: Default True. If True, prints out details of the monkey
+                movement.
+            wait: Default True. If false, doesn't wait for user when control is
+                passed in directions.
 
         Raises:
             ControlError: Raised if control is not properly defined.
@@ -121,25 +125,31 @@ class Grid:
                 # Get input from a list of directions
                 try:
                     action = directions[monkey_index]
+                    # Get the string action
+                    action_string = gl.WASD[action]
                 except IndexError as e:
                     raise ControlError('Directions not specified').\
                         with_traceback(e.__traceback__)
                 if action not in range(len(gl.WASD)):
                     raise ControlError('Action ' + str(action) + \
                         ' for monkey ' + str(monkey_index)+' is not valid.')
-                # Print out the action if loud is on
+                # Print out the action if loud and wait are is on
                 if loud:
-                    # Get the string action
-                    action_string = gl.WASD[action]
-                    input('>>>'+action_string)
+                    if wait:
+                        input('>>>'+action_string)
+                    else:
+                        print('>>>'+action_string)
             elif control == 0:
                 # Get action from monkey's brain
                 action = monkey.action(surr)
-                # Print out the action if loud is on
+                # Get the string action
+                action_string = gl.WASD[action]
+                # Print out the action if loud and wait are is on
                 if loud:
-                    # Get the string action
-                    action_string = gl.WASD[action]
-                    input('>>>'+action_string)
+                    if wait:
+                        input('>>>'+action_string)
+                    else:
+                        print('>>>'+action_string)
             else:
                 raise ControlError('Control must be specified as 0, 1, or 2')
 
@@ -194,16 +204,14 @@ class Grid:
             # Check if the monkey is starving to death.
             if monkey.food <= 0:
                 monkey.dead = True
-            # Check if the monkey is invincible
-            if invincible:
-                monkey.dead = False
             # Clean up the monkey if need be
             if monkey.dead:
                 # Mark monkey for cleanup
                 dead_monkeys.append(monkey_index)
         # Remove dead monkeys
         for dead_index in dead_monkeys[::-1]:
-            del self.monkeys[dead_index]
+            if not invincible:
+                del self.monkeys[dead_index]
         # Replace the monkeys
         self.replace_monkeys()
         # Check if there are any monkeys left
