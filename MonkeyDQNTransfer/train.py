@@ -192,8 +192,8 @@ def load_records(path):
         return sum(records, [])
 
 
-def dqn_training(g, N, gamma, epsilon_start, epsilon_end, n_epsilon, lr, \
-    watch = False):
+def dqn_training(g, N, gamma, lr, \
+    epsilon_data = (0,0,0), watch = False):
     """
     This function trains a monkey with reinforcement learning.
 
@@ -214,10 +214,8 @@ def dqn_training(g, N, gamma, epsilon_start, epsilon_end, n_epsilon, lr, \
             superclass Brain_DQN.
         N: The number of iterations of training to do.
         gamma: The discount for the Bellman equation.
-        epsilon_start: The initial value for epsilon for the epsilon-greedy
-            policy.
-        epsilon_end: The final value for epsilon.
-        n_epsilon: The decay rate for epsilon.
+        epsilon_data: A tuple giving the initial and final values for
+            epsilon in an epsilon greedy policy as well as the decay rate.
         lr: The learning rate.
         watch: Default False. If True, will wait for the user to look at every
             iteration of the training.
@@ -227,6 +225,11 @@ def dqn_training(g, N, gamma, epsilon_start, epsilon_end, n_epsilon, lr, \
         iteration number, second number is average loss over the
         iterations leading up to this report.
     """
+    # Unpack epsilon if it exists
+    epsilon_needed = False
+    if epsilon_data != (0,0,0):
+        epsilon_start, epsilon_end, n_epsilon = epsilon_data
+        epsilon_needed = True
 
     # Instantiate total reward
     total_reward = 0
@@ -236,7 +239,10 @@ def dqn_training(g, N, gamma, epsilon_start, epsilon_end, n_epsilon, lr, \
     sight_new = g.surroundings(g.monkeys[0].pos)
     food_new = g.monkeys[0].food
     state_new = (food_new, sight_new)
-    Q_new, a_new, p_new = g.monkeys[0].brain.pi(state_new)
+    if epsilon_needed:
+        Q_new, a_new, p_new = g.monkeys[0].brain.pi(state_new, epsilon_start)
+    else:
+        Q_new, a_new, p_new = g.monkeys[0].brain.pi(state_new)
     g.monkeys[0].brain.train()
 
 
@@ -276,7 +282,12 @@ def dqn_training(g, N, gamma, epsilon_start, epsilon_end, n_epsilon, lr, \
         # a) Calculate the quality of the move undertaken
         # This was already done in part 1.
         # b) Calculate the maximum quality of the subsequent move
-        Q_new, a_new, p_new = g.monkeys[0].brain.pi(state_new)
+        if epsilon_needed:
+            epsilon = (epsilon_start - epsilon_end)*math.exp(-(n+1)/n_epsilon)\
+                + epsilon_end
+            Q_new, a_new, p_new = g.monkeys[0].brain.pi(state_new, epsilon)
+        else:
+            Q_new, a_new, p_new = g.monkeys[0].brain.pi(state_new)
         # c) Calculate the loss difference
         delta = Q - r - gamma * Q_new
         # d) Calculate the loss as Huber loss.

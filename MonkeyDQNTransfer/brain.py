@@ -135,10 +135,13 @@ class BrainDQN(nn.Module):
             # Make a random movement
             a = random.randrange(0,len(gl.WASD))
             # Calculate the qualities
-            return self.Q(s,a), a
+            return self.Q(s,a), a, epsilon
         else:
+            # Get the probability of this occuring
+            p = 1-epsilon
             # Just take the best action
-            return self.pi_greedy(s)
+            Q, a = self.pi_greedy(s)
+            return Q, a, p
 
     def pi_probabilistic(self, s):
         """
@@ -169,6 +172,103 @@ class BrainDQN(nn.Module):
         a = bisect.bisect(CDF, roll)
         # Return the quality and action.
         return Qs[a], a, Q_softmax[a]
+
+
+class BrainLinearAI(BrainDQN):
+    """
+    This is an antificial intelligence for moving towards bananas.
+
+    No memory implementation.
+    """
+
+    def __init__(self):
+        """
+        There is no neural net to initialize, but we do need to initialize the
+        parent class to inherit its user-defined functions.
+        """
+        BrainDQN.__init__(self)
+        # Set default policy.
+    
+    def forward(self, s):
+        """
+        This is the value that the AI determines for each direction. It is
+        analogous to a quality vector, except there is no interpretation of
+        the value in the vector being related to the number of bananas
+        we expect.
+
+        Walls are viewed with a base value of -0.5 and are divided by magnitude
+        to the third power.
+
+        Monkeys have no base value.
+
+        Bananas are viewed with a base value of 1 and are divided by magnitude
+        squared.
+
+        Danger is viewed with a base value of -100 and divided by magnitude to
+        the fourth power.
+
+        Every object in the map contributes to the value by its own vector v
+        measured with respect to the monkey.
+
+        Value Contribution = (base value) * v / ||v||**p
+
+        Args:
+            s: The state of the system.
+        
+        Returns:
+            0: 5-tensor of values.
+        """
+        # Define the base values and powers
+        base_values = torch.zeros(len(gl.BLOCK_TYPES))
+        powers = torch.zeros(len(gl.BLOCK_TYPES))
+        base_values[gl.INDEX_BARRIER] = -0.5
+        base_values[gl.INDEX_MONKEY] = 0.0
+        base_values[gl.INDEX_BANANA] = 1.0
+        base_values[gl.INDEX_DANGER] = -100.0
+        powers[gl.INDEX_BARRIER] = 3
+        powers[gl.INDEX_MONKEY] = 1
+        powers[gl.INDEX_BANANA] = 2
+        powers[gl.INDEX_DANGER] = 4
+
+        # First get the channels map
+        food, vision = s
+
+        # Calculate radius
+        radius = len(gl.SIGHT)//2
+
+        # Start of the value contribution sum as zero
+        value_sum = torch.zeros(2)
+
+        # Iterate through positions first.
+        for i in range(len(gl.SIGHT)):
+            for j in range(len(gl.SIGHT)):
+                # Check if this spot is populated
+                if 1 in (vision[:,i,j] > 0):
+                    # The spot is populated. Calculate the vector.
+                    v = torch.tensor([i-radius,j-radius])
+                    # Calculate the norm
+                    norm = v.norm()
+                    # Now iterate through the channels
+                    for channel_index in range(len(gl.BLOCK_TYPES)):
+                        # Skip unnecessary computations'
+                        if channel_index != gl.INDEX_MONKEY and \
+                            (vision[channel_index,i,j] > 0):
+                            # Add to value sum
+                            values_sum += vision[channel_index,i,j] * \
+                                base_values[channel_index] * v / \
+                                norm**powers[channel_index]
+
+        # Now we just re-index the value sum
+        values = torch.zeros(len(gl.WASD))
+        values[0] = value_sum[1]
+        values[1] = -value_sum[0]
+        values[2] = -value_sum[1]
+        values[3] = value_sum[0]
+
+        # Return the values
+        return values
+
+
 
 
 class BrainLinear(BrainDQN):

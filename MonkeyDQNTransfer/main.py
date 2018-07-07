@@ -32,15 +32,19 @@ if __name__ == "__main__":
     epochs = 500
     reports = 100
     N = 200
-    epsilon_start = 0.9
-    epsilon_end = 0.01
-    n_epsilon = 50
+    epsilon_start = 0.7
+    epsilon_end = 0.15
+    n_epsilon = 100
 
     # Import the ASCII map.
     room_start = rg.ASCII_to_channel(gl.room_start_ASCII)
-    # Build grid object with monkey and brain
+    # Build brain
     monkey_brain = brain.BrainLinear()
+    # Set brain's pi function to be epsilon greedy
+    monkey_brain.pi = monkey_brain.pi_epsilon_greedy
+    # Put brain in monkey
     monkey = monkey.Monkey(monkey_brain)
+    # Put monkey on grid
     monkey.pos = (3,3)
     g = grid.Grid([monkey], room_start)
 
@@ -50,26 +54,26 @@ if __name__ == "__main__":
     # Load brain from permanent memory
     monkey_brain.load_state_dict(torch.load('brainsave.txt'))
 
-    # Supervised monkey training
-    dump_parameters(monkey_brain, 'brain0.txt')
-    loss_data = train.supervised_training(epochs, ['data_channels.txt'], \
-        monkey_brain, gamma, lr, reports)
-    dump_parameters(monkey_brain, 'brain1.txt')
+    # # Supervised monkey training
+    # dump_parameters(monkey_brain, 'brain0.txt')
+    # loss_data = train.supervised_training(epochs, ['data_channels.txt'], \
+    #     monkey_brain, gamma, lr, reports)
+    # dump_parameters(monkey_brain, 'brain1.txt')
 
     # Reinforcement monkey training
     for i in range(100):
-        total_reward = train.dqn_training(g, N, gamma, \
-            epsilon_start, epsilon_end, n_epsilon, \
-            lr, watch = False)
+        total_reward = train.dqn_training(g, N, gamma, lr, \
+            epsilon_data = (epsilon_start, epsilon_end, n_epsilon), \
+            watch = False)
         print(i,total_reward)
 
     # # Save the brain to permanent memory
     # torch.save(monkey_brain.state_dict(), 'brainsave.txt')
 
     # Watch monkey train
-    total_reward = train.dqn_training(g, N, gamma, \
-        epsilon_start, epsilon_end, n_epsilon, \
-        lr, watch = True)
+    total_reward = train.dqn_training(g, N, gamma, lr, \
+        epsilon_data = (epsilon_start, epsilon_end, n_epsilon), \
+        watch = True)
 
     # # Save the training data
     # out_file = open('loss_report.txt', 'a')
