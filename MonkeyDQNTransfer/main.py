@@ -11,6 +11,7 @@ from __future__ import division
 import torch
 import torch.nn as nn
 import matplotlib.pyplot as plt
+import random
 
 import global_variables as gl
 import exceptions
@@ -37,22 +38,27 @@ if __name__ == "__main__":
     n_epsilon = 100
 
     # Import the ASCII map.
-    room_start = rg.ASCII_to_channel(gl.room_start_ASCII)
-    # Build brain
-    monkey_brain = brain.BrainLinear()
-    # Set brain's pi function to be epsilon greedy
-    monkey_brain.pi = monkey_brain.pi_epsilon_greedy
-    # Put brain in monkey
-    monkey = monkey.Monkey(monkey_brain)
-    # Put monkey on grid
-    monkey.pos = (3,3)
-    g = grid.Grid([monkey], room_start)
+    room_start = gl.RAND_ROOM #rg.ASCII_to_channel(gl.ROOM_START_ASCII)
+    # Build monkeys
+    monkeys = [monkey.Monkey(brain.BrainLinearAI()) for i in \
+        range(gl.RAND_ROOM_WIDTH)]
+    for monkey in monkeys:
+        i = random.randrange(1,gl.RAND_ROOM_WIDTH-1)
+        j = random.randrange(1,gl.RAND_ROOM_WIDTH-1)
+        monkey.pos = (i,j)
+    g = grid.Grid(monkeys, room_start)
+    # Make data paths for the monkeys
+    paths = ['AIDATA\\AIData'+str(i)+'.txt' for i in \
+        range(gl.RAND_ROOM_WIDTH)]
+
+    # Generate training data from the A.I.
+    train.monkey_training_data(10000, paths, g)
 
     # # Generate training data
     # train.training_data(1000,['throwaway.txt'], g)
 
-    # Load brain from permanent memory
-    monkey_brain.load_state_dict(torch.load('brainsave.txt'))
+    # # Load brain from permanent memory
+    # monkey_brain.load_state_dict(torch.load('brainsave.txt'))
 
     # # Supervised monkey training
     # dump_parameters(monkey_brain, 'brain0.txt')
@@ -60,20 +66,20 @@ if __name__ == "__main__":
     #     monkey_brain, gamma, lr, reports)
     # dump_parameters(monkey_brain, 'brain1.txt')
 
-    # Reinforcement monkey training
-    for i in range(100):
-        total_reward = train.dqn_training(g, N, gamma, lr, \
-            epsilon_data = (epsilon_start, epsilon_end, n_epsilon), \
-            watch = False)
-        print(i,total_reward)
+    # # Reinforcement monkey training
+    # for i in range(100):
+    #     total_reward = train.dqn_training(g, N, gamma, lr, \
+    #         epsilon_data = (epsilon_start, epsilon_end, n_epsilon), \
+    #         watch = False)
+    #     print(i,total_reward)
 
     # # Save the brain to permanent memory
     # torch.save(monkey_brain.state_dict(), 'brainsave.txt')
 
-    # Watch monkey train
-    total_reward = train.dqn_training(g, N, gamma, lr, \
-        epsilon_data = (epsilon_start, epsilon_end, n_epsilon), \
-        watch = True)
+    # # Watch monkey train
+    # total_reward = train.dqn_training(g, N, gamma, lr, \
+    #     epsilon_data = (epsilon_start, epsilon_end, n_epsilon), \
+    #     watch = True)
 
     # # Save the training data
     # out_file = open('loss_report.txt', 'a')

@@ -51,14 +51,12 @@ class Grid:
         """
         Puts the monkeys in their place in the channel map.\
         """
-        # Find the right channel
-        monkey_channel_index = gl.INDEX_MONKEY
         # Clear all the monkeys
-        self.channel_map[monkey_channel_index] = torch.zeros(\
+        self.channel_map[gl.INDEX_MONKEY] = torch.zeros(\
             self.channel_map[0].size(), dtype = torch.uint8)
         for monkey in self.monkeys:
             i,j = monkey.pos
-            self.channel_map[monkey_channel_index][i][j] += 1
+            self.channel_map[gl.INDEX_MONKEY,i,j] += 1
 
     def tick(self, control, directions = [], invincible = False, loud=True, wait=True):
         """
@@ -141,15 +139,15 @@ class Grid:
                         print('>>>'+action_string)
             elif control == 0:
                 # Get action from monkey's brain
-                action = monkey.action(surr)
+                Q, action, probability = monkey.brain.pi((monkey.food, surr))
                 # Get the string action
                 action_string = gl.WASD[action]
                 # Print out the action if loud and wait are is on
                 if loud:
                     if wait:
-                        input('>>>'+action_string)
+                        input('>>>'+action_string+' '+str(probability))
                     else:
-                        print('>>>'+action_string)
+                        print('>>>'+action_string+' '+str(probability))
             else:
                 raise ControlError('Control must be specified as 0, 1, or 2')
 
@@ -160,6 +158,7 @@ class Grid:
 
             # Now we want to move the monkey
             monkey.move(action)
+            
             # Get the blocks on this space
             this_space = self.channel_map[:,monkey.pos[0],monkey.pos[1]]
             # Check if the monkey is trying to move to a barrier

@@ -9,6 +9,7 @@ from __future__ import print_function
 from __future__ import division
 
 import torch
+import random
 
 # SIGHT =[[0,0,0,0,0,0,0,1,1,1,1,1,0,0,0,0,0,0,0],
 #         [0,0,0,0,0,1,1,1,1,1,1,1,1,1,0,0,0,0,0],
@@ -66,7 +67,7 @@ INDEX_DANGER = BLOCK_TYPES.index('d')
 WASD = 'wasd '
 
 # Start with the basic room
-room_start_ASCII =  '##################################\n'+\
+ROOM_START_ASCII =  '##################################\n'+\
                     '#  b                   #  b      #\n'+\
                     '#          d  b        #     b   #\n'+\
                     '#    b                  d        #\n'+\
@@ -83,4 +84,33 @@ room_start_ASCII =  '##################################\n'+\
                     '#         b     #           ######\n'+\
                     '##################################'
 
-max_discount = 0.1
+BANANA_ROOM = torch.zeros((len(BLOCK_TYPES),1000,1000), \
+	dtype=torch.uint8)
+for n in range(200**2):
+	i = random.randrange(1000)
+	j = random.randrange(1000)
+	BANANA_ROOM[INDEX_BANANA,i,j] += 1
+
+RAND_ROOM_WIDTH = 400
+
+RAND_ROOM = torch.zeros((len(BLOCK_TYPES),RAND_ROOM_WIDTH,RAND_ROOM_WIDTH), \
+	dtype=torch.uint8)
+for n in range(RAND_ROOM_WIDTH**2//13):
+	i = random.randrange(RAND_ROOM_WIDTH)
+	j = random.randrange(RAND_ROOM_WIDTH)
+	RAND_ROOM[INDEX_BANANA,i,j] += 1
+for n in range(RAND_ROOM_WIDTH**2//20):
+	i = random.randrange(RAND_ROOM_WIDTH)
+	j = random.randrange(RAND_ROOM_WIDTH)
+	RAND_ROOM[INDEX_DANGER,i,j] += 1
+for n in range(RAND_ROOM_WIDTH**2//20):
+	i = random.randrange(RAND_ROOM_WIDTH)
+	j = random.randrange(RAND_ROOM_WIDTH)
+	RAND_ROOM[INDEX_BARRIER,i,j] += 1
+
+# Cover with borders
+for i in range(RAND_ROOM_WIDTH):
+	for j in range(RAND_ROOM_WIDTH):
+		if i == 0 or j == 0:
+			RAND_ROOM[:,i,j] = torch.zeros(len(BLOCK_TYPES))
+			RAND_ROOM[INDEX_BARRIER,i,j] = 1

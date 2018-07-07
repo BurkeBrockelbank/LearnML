@@ -33,9 +33,10 @@ def monkey_training_data(N, paths, g):
         g: The grid to generate training data from.
     """
     for n in range(N):
+        print('Turn', n, 'begun.')
         # Tick the monkeys
         foods, actions, surroundings = g.tick(0, invincible = True, \
-            loud=False, wait=False)
+            loud=False)#, wait=False)
         # Iterate through the paths, surroundings, and actions
         for path, food, action, surr in zip(paths, foods, actions, surroundings):
             # Write the data to file
@@ -94,7 +95,7 @@ def training_data(N, paths, g):
             outF.write('\n')
             outF.close()
 
-def supervised_training(epochs, paths, brain, gamma, lr, reports):
+def supervised_training(epochs, paths, brain, gamma, max_discount, lr,reports):
     """
     This performs supervised training on the monkey. 
     
@@ -103,6 +104,8 @@ def supervised_training(epochs, paths, brain, gamma, lr, reports):
         paths: A list of paths leading to the data files.
         brain: The brain to train.
         gamma: The discount factor in the Bellman equation.
+        max_discount: The maximum factor to allow for discount in calculating
+        qualities.
         lr: The learning rate to use.
 
     Returns:
@@ -145,9 +148,8 @@ def supervised_training(epochs, paths, brain, gamma, lr, reports):
         all_data.append(new_data)
     # Since the final quality values concatenate the series short, we should
     # cut those data points. We will arbitrarily decide to ignore rewards which
-    # have a reduction in magnitute by a factor in the variable max_discount
-    # in global_variables.
-    n_to_cut = math.ceil(math.log(gl.max_discount)/math.log(gamma))
+    # have a reduction in magnitute by the factor max_discount.
+    n_to_cut = math.ceil(math.log(max_discount)/math.log(gamma))
     all_data = [x[:-n_to_cut] for x in all_data]
     # And now we have processed the data
 
@@ -315,7 +317,7 @@ def dqn_training(g, N, gamma, lr, \
         if g.monkeys[0].dead:
             r = -50
             # If the monkey died of hunger, feed it.
-            if g.monkeys[0]food < 0:
+            if g.monkeys[0].food < 0:
                 g.monkeys[0].eat(5)
                 state_new = (g.monkeys[0].food, sight_new)
             g.monkeys[0].dead = False

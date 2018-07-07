@@ -88,7 +88,7 @@ class BrainDQN(nn.Module):
         """
         Qs = self.forward(s)
         max_Q, max_a = Qs.max(0)
-        return max_Q, max_a
+        return max_Q, max_a, 1
 
     def argmax_a(self, s):
         """
@@ -100,7 +100,7 @@ class BrainDQN(nn.Module):
         Returns:
             0: Action which maximizes the quality of the state.
         """
-        max_Q, max_a = self.pi_greedy(s)
+        max_Q, max_a, _ = self.pi_greedy(s)
         return max_a
 
     def Q(self, s, a):
@@ -140,7 +140,7 @@ class BrainDQN(nn.Module):
             # Get the probability of this occuring
             p = 1-epsilon
             # Just take the best action
-            Q, a = self.pi_greedy(s)
+            Q, a, _ = self.pi_greedy(s)
             return Q, a, p
 
     def pi_probabilistic(self, s):
@@ -187,8 +187,50 @@ class BrainLinearAI(BrainDQN):
         parent class to inherit its user-defined functions.
         """
         BrainDQN.__init__(self)
-        # Set default policy.
-    
+
+        # Calculate values for AI.
+        self.value_factor = torch.zeros(len(gl.SIGHT),\
+                                        len(gl.SIGHT),\
+                                        len(gl.BLOCK_TYPES),\
+                                        2)
+
+        # Define the base values and powers
+        T = torch.zeros((len(gl.BLOCK_TYPES),2,2))
+        T[gl.INDEX_BARRIER] = torch.FloatTensor([[-0.1,0.1],
+                                                [-0.1,-0.1]])
+        T[gl.INDEX_MONKEY] = 0.1*torch.eye(2)
+        T[gl.INDEX_BANANA] = torch.eye(2)
+        T[gl.INDEX_DANGER] = -4.0*torch.FloatTensor([[1, 0],
+                                                 [ 0,1]])
+        p = torch.zeros(len(gl.BLOCK_TYPES))
+        p[gl.INDEX_BARRIER] = 4
+        p[gl.INDEX_MONKEY] = 1
+        p[gl.INDEX_BANANA] = 3
+        p[gl.INDEX_DANGER] = 5
+
+        # Calculate radius
+        radius = len(gl.SIGHT)//2
+
+        # Iterate through positions first.
+        for i in range(len(gl.SIGHT)):
+            for j in range(len(gl.SIGHT)):
+                if i == radius and j == radius:
+                    continue
+                # The spot is populated. Calculate the vector.
+                v = torch.FloatTensor([i-radius,j-radius])
+                # Calculate the norm
+                norm = v.norm()
+                # Multiply the transformation
+                Tv = torch.matmul(T,v.view(2,1)).view(len(gl.BLOCK_TYPES),2)
+                # Divide by the norm appropriately
+                for cc in range(len(gl.BLOCK_TYPES)):
+                    Tv[cc] /= norm**p[cc]
+                # Add to value factors
+                self.value_factor[i,j,:,:] = Tv
+
+    def pi(self, s):# Set default policy.
+        return self.pi_epsilon_greedy(s, 0.07)
+
     def forward(self, s):
         """
         This is the value that the AI determines for each direction. It is
@@ -196,21 +238,36 @@ class BrainLinearAI(BrainDQN):
         the value in the vector being related to the number of bananas
         we expect.
 
-        Walls are viewed with a base value of -0.5 and are divided by magnitude
-        to the third power.
-
-        Monkeys have no base value.
-
-        Bananas are viewed with a base value of 1 and are divided by magnitude
-        squared.
-
-        Danger is viewed with a base value of -50 and divided by magnitude to
-        the fourth power.
+        Every block type is assigned a matrix T and decay p.
 
         Every object in the map contributes to the value by its own vector v
         measured with respect to the monkey.
 
-        Value Contribution = (base value) * v / ||v||**p
+        Value Contribution = T(v) / ||v||**p
+
+        T_barrier = [[0,0.5],
+                         [-0.5,0]]
+        p_barrier = 4
+
+        T_monkey = [[0.1,0],
+                    [0,0.1]]
+        p_monkey = 1
+
+        T_banana = [[1,0],
+                    [0,1]]
+        p_banana = 3
+
+        T_danger = -20*[[1,0],
+                        [0,1]]
+        p_danger = 4
+
+        Monkeys have no base value.
+
+        Bananas are viewed with a base value of 1 and are divided by magnitude
+        cubed.
+
+        Danger is viewed with a base value of -20 and divided by magnitude to
+        the fourth power.
 
         The value of W, A, S, or D movements is determined this way. The value
         of staying still is zero, te preserve linearity.
@@ -221,23 +278,9 @@ class BrainLinearAI(BrainDQN):
         Returns:
             0: 5-tensor of values.
         """
-        # Define the base values and powers
-        base_values = torch.zeros(len(gl.BLOCK_TYPES))
-        powers = torch.zeros(len(gl.BLOCK_TYPES))
-        base_values[gl.INDEX_BARRIER] = -0.5
-        base_values[gl.INDEX_MONKEY] = 0.0
-        base_values[gl.INDEX_BANANA] = 1.0
-        base_values[gl.INDEX_DANGER] = -50.0
-        powers[gl.INDEX_BARRIER] = 3
-        powers[gl.INDEX_MONKEY] = 1
-        powers[gl.INDEX_BANANA] = 2
-        powers[gl.INDEX_DANGER] = 4
 
         # First get the channels map
         food, vision = s
-
-        # Calculate radius
-        radius = len(gl.SIGHT)//2
 
         # Start of the value contribution sum as zero
         value_sum = torch.zeros(2)
@@ -248,25 +291,16 @@ class BrainLinearAI(BrainDQN):
                 # Check if this spot is populated
                 if 1 in (vision[:,i,j] > 0):
                     # The spot is populated. Calculate the vector.
-                    v = torch.tensor([i-radius,j-radius])
-                    # Calculate the norm
-                    norm = v.norm()
-                    # Now iterate through the channels
-                    for channel_index in range(len(gl.BLOCK_TYPES)):
-                        # Skip unnecessary computations'
-                        if channel_index != gl.INDEX_MONKEY and \
-                            (vision[channel_index,i,j] > 0):
-                            # Add to value sum
-                            values_sum += vision[channel_index,i,j] * \
-                                base_values[channel_index] * v / \
-                                norm**powers[channel_index]
+                    value_sum += torch.matmul(vision[:,i,j].float()[None],\
+                        self.value_factor[i,j,:,:]).view(2)
+
 
         # Now we just re-index the value sum
         values = torch.zeros(len(gl.WASD))
-        values[0] = value_sum[1]
-        values[1] = -value_sum[0]
-        values[2] = -value_sum[1]
-        values[3] = value_sum[0]
+        values[0] = -value_sum[0]
+        values[1] = -value_sum[1]
+        values[2] = value_sum[0]
+        values[3] = value_sum[1]
 
         # Return the values
         return values
