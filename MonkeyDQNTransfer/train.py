@@ -21,6 +21,47 @@ import math
 import random
 
 
+def monkey_training_data(N, paths, g):
+    """
+    This generates training data based on the actions of a monkey. The
+    intention is for this to be used with an A.I.
+
+    Args:
+        N: The number of ticks in the training data.
+        paths: A list of paths leading to the data files. One path must be
+            present for each monkey in the grid.
+        g: The grid to generate training data from.
+    """
+    for n in range(N):
+        # Tick the monkeys
+        foods, actions, surroundings = g.tick(0, invincible = True, \
+            loud=False, wait=False)
+        # Iterate through the paths, surroundings, and actions
+        for path, food, action, surr in zip(paths, foods, actions, surroundings):
+            # Write the data to file
+            outF = open(path, 'a')
+            outF.write('(')
+            outF.write(str(food))
+            outF.write(',')
+            outF.write(str(action))
+            outF.write(',')
+            surr_string = str(surr)
+            surr_string = surr_string.replace('tensor','torch.tensor')
+            surr_string = surr_string.replace(' ','')
+            surr_string = surr_string.replace('\n','')
+            outF.write(surr_string)
+            outF.write(')')
+            outF.write('\n')
+            outF.close()
+
+        # If the monkey died:
+        for monkey in g.monkeys:
+            if monkey.dead:
+                monkey.dead = False
+                # If the monkey needs food, give it a few bananas.
+                if monkey.food < 0:
+                    monkey.eat(5)
+
 def training_data(N, paths, g):
     """
     This generates training data for the monkey with user input. Only tracks
@@ -273,8 +314,10 @@ def dqn_training(g, N, gamma, lr, \
         # If the monkey is dead, it instead gets a large penalty
         if g.monkeys[0].dead:
             r = -50
-            g.monkeys[0].eat(5)
-            state_new = (g.monkeys[0].food, sight_new)
+            # If the monkey died of hunger, feed it.
+            if g.monkeys[0]food < 0:
+                g.monkeys[0].eat(5)
+                state_new = (g.monkeys[0].food, sight_new)
             g.monkeys[0].dead = False
         total_reward += r
 

@@ -204,13 +204,16 @@ class BrainLinearAI(BrainDQN):
         Bananas are viewed with a base value of 1 and are divided by magnitude
         squared.
 
-        Danger is viewed with a base value of -100 and divided by magnitude to
+        Danger is viewed with a base value of -50 and divided by magnitude to
         the fourth power.
 
         Every object in the map contributes to the value by its own vector v
         measured with respect to the monkey.
 
         Value Contribution = (base value) * v / ||v||**p
+
+        The value of W, A, S, or D movements is determined this way. The value
+        of staying still is zero, te preserve linearity.
 
         Args:
             s: The state of the system.
@@ -224,7 +227,7 @@ class BrainLinearAI(BrainDQN):
         base_values[gl.INDEX_BARRIER] = -0.5
         base_values[gl.INDEX_MONKEY] = 0.0
         base_values[gl.INDEX_BANANA] = 1.0
-        base_values[gl.INDEX_DANGER] = -100.0
+        base_values[gl.INDEX_DANGER] = -50.0
         powers[gl.INDEX_BARRIER] = 3
         powers[gl.INDEX_MONKEY] = 1
         powers[gl.INDEX_BANANA] = 2

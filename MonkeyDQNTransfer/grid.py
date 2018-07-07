@@ -199,11 +199,8 @@ class Grid:
             # Check if the monkey is in danger
             if this_space[gl.INDEX_BANANA] >= 1:
                 monkey.dead = True
-            # The monkey now ages and consumes food.
+            # The monkey now ages and consumes food (possibly starving to death).
             monkey.tick()
-            # Check if the monkey is starving to death.
-            if monkey.food <= 0:
-                monkey.dead = True
             # Clean up the monkey if need be
             if monkey.dead:
                 # Mark monkey for cleanup
