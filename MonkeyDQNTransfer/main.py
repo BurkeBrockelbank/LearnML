@@ -41,18 +41,19 @@ if __name__ == "__main__":
     room_start = gl.RAND_ROOM #rg.ASCII_to_channel(gl.ROOM_START_ASCII)
     # Build monkeys
     monkeys = [monkey.Monkey(brain.BrainLinearAI()) for i in \
-        range(gl.RAND_ROOM_WIDTH)]
+        range(50)]
     for monkey in monkeys:
-        i = random.randrange(1,gl.RAND_ROOM_WIDTH-1)
-        j = random.randrange(1,gl.RAND_ROOM_WIDTH-1)
+        # Place the monkeys a bit away from the walls (10 blocks).
+        i = random.randrange(10,gl.RAND_ROOM_WIDTH-10)
+        j = random.randrange(10,gl.RAND_ROOM_WIDTH-10)
         monkey.pos = (i,j)
     g = grid.Grid(monkeys, room_start)
     # Make data paths for the monkeys
     paths = ['AIDATA\\AIData'+str(i)+'.txt' for i in \
-        range(gl.RAND_ROOM_WIDTH)]
+        range(50)]
 
     # Generate training data from the A.I.
-    train.monkey_training_data(10000, paths, g)
+    train.monkey_training_data(1000000, paths, g, loud=[])
 
     # # Generate training data
     # train.training_data(1000,['throwaway.txt'], g)

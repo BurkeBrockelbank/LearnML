@@ -99,18 +99,18 @@ for n in range(RAND_ROOM_WIDTH**2//13):
 	i = random.randrange(RAND_ROOM_WIDTH)
 	j = random.randrange(RAND_ROOM_WIDTH)
 	RAND_ROOM[INDEX_BANANA,i,j] += 1
-for n in range(RAND_ROOM_WIDTH**2//20):
+for n in range(RAND_ROOM_WIDTH**2//50):
 	i = random.randrange(RAND_ROOM_WIDTH)
 	j = random.randrange(RAND_ROOM_WIDTH)
 	RAND_ROOM[INDEX_DANGER,i,j] += 1
-for n in range(RAND_ROOM_WIDTH**2//20):
-	i = random.randrange(RAND_ROOM_WIDTH)
-	j = random.randrange(RAND_ROOM_WIDTH)
-	RAND_ROOM[INDEX_BARRIER,i,j] += 1
+# for n in range(RAND_ROOM_WIDTH**2//20):
+# 	i = random.randrange(RAND_ROOM_WIDTH)
+# 	j = random.randrange(RAND_ROOM_WIDTH)
+# 	RAND_ROOM[INDEX_BARRIER,i,j] += 1
 
 # Cover with borders
 for i in range(RAND_ROOM_WIDTH):
 	for j in range(RAND_ROOM_WIDTH):
-		if i == 0 or j == 0:
+		if i in [0, RAND_ROOM_WIDTH-1] or j in [0, RAND_ROOM_WIDTH-1]:
 			RAND_ROOM[:,i,j] = torch.zeros(len(BLOCK_TYPES))
 			RAND_ROOM[INDEX_BARRIER,i,j] = 1

@@ -58,7 +58,24 @@ class Grid:
             i,j = monkey.pos
             self.channel_map[gl.INDEX_MONKEY,i,j] += 1
 
-    def tick(self, control, directions = [], invincible = False, loud=True, wait=True):
+    def teleport_monkey(self, ij0, ij1):
+        """
+        Used to update the position of a single monkey in the channel map.
+
+        Args:
+            ij0: The old position of the monkey (2 tuple of integers)
+            ij1: The new position of the monkey (2 tuple of integers)
+
+        Raises:
+            IndexError: If there wasn't a monkey there to begin with.
+        """
+        if self.channel_map[gl.INDEX_MONKEY,ij0[0],ij0[1]] > 0:
+            self.channel_map[gl.INDEX_MONKEY,ij0[0],ij0[1]] -= 1
+            self.channel_map[gl.INDEX_MONKEY,ij1[0],ij1[1]] += 1
+        else:
+            raise IndexError('No monkey to remove at' + str(ij0))
+
+    def tick(self, control, directions = [], invincible = False, loud=[], wait=True):
         """
         This function moves the entire grid and all the monkeys forward one
         timestep.
@@ -72,16 +89,15 @@ class Grid:
                 control is 1.
             invincible: Default False. If true, the monkey is not removed if it
                 dies.
-            loud: Default True. If True, prints out details of the monkey
-                movement.
+            loud: Default []. This list is a list of the indeces of monkeys to watch.
             wait: Default True. If false, doesn't wait for user when control is
-                passed in directions.
+                0 or 1.
 
         Raises:
             ControlError: Raised if control is not properly defined.
         """
         # Report the turn if set to loud
-        if loud:
+        if loud != []:
             print('TURN', self.turn_count)
 
         # Instantiate a list for dying monkeys
@@ -97,7 +113,7 @@ class Grid:
             # Get the surroundings of the monkey.
             surr = self.surroundings(monkey.pos)
             # Print details for this tick
-            if loud:
+            if monkey_index in loud:
                 # Print monkey number and number of bananas
                 print('Monkey', monkey_index, 'food', int(monkey.food), 'age', monkey.age)
                 # Get the ascii map
@@ -132,7 +148,7 @@ class Grid:
                     raise ControlError('Action ' + str(action) + \
                         ' for monkey ' + str(monkey_index)+' is not valid.')
                 # Print out the action if loud and wait are is on
-                if loud:
+                if monkey_index in loud:
                     if wait:
                         input('>>>'+action_string)
                     else:
@@ -143,7 +159,7 @@ class Grid:
                 # Get the string action
                 action_string = gl.WASD[action]
                 # Print out the action if loud and wait are is on
-                if loud:
+                if monkey_index in loud:
                     if wait:
                         input('>>>'+action_string+' '+str(probability))
                     else:
@@ -158,7 +174,6 @@ class Grid:
 
             # Now we want to move the monkey
             monkey.move(action)
-            
             # Get the blocks on this space
             this_space = self.channel_map[:,monkey.pos[0],monkey.pos[1]]
             # Check if the monkey is trying to move to a barrier

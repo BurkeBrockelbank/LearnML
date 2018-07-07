@@ -21,7 +21,7 @@ import math
 import random
 
 
-def monkey_training_data(N, paths, g):
+def monkey_training_data(N, paths, g, loud=[]):
     """
     This generates training data based on the actions of a monkey. The
     intention is for this to be used with an A.I.
@@ -31,12 +31,14 @@ def monkey_training_data(N, paths, g):
         paths: A list of paths leading to the data files. One path must be
             present for each monkey in the grid.
         g: The grid to generate training data from.
+        loud: Default []. List of monkey indeces to watch.
     """
+    charity = False
     for n in range(N):
         print('Turn', n, 'begun.')
         # Tick the monkeys
         foods, actions, surroundings = g.tick(0, invincible = True, \
-            loud=False)#, wait=False)
+            loud=loud)
         # Iterate through the paths, surroundings, and actions
         for path, food, action, surr in zip(paths, foods, actions, surroundings):
             # Write the data to file
@@ -62,21 +64,41 @@ def monkey_training_data(N, paths, g):
                 # If the monkey needs food, give it a few bananas.
                 if monkey.food < 0:
                     monkey.eat(5)
+                    # See if the monkey has starved to death before.
+                    if charity:
+                        # We should teleport the monkey to get it unstuck
+                        charity = False
+                        invalid_spot = True
+                        while invalid_spot:
+                            i = random.randrange(g.width)
+                            j = random.randrange(g.height)
+                            # This spot can have a monkey placed on it
+                            if g.channel_map[gl.INDEX_BARRIER,i,j] == 0 and \
+                                g.channel_map[gl.INDEX_DANGER,i,j] == 0:
+                                # First teleport the monkey on the channel map
+                                g.teleport_monkey(monkey.pos, (i,j))
+                                # Update the position in the monkey object
+                                monkey.pos = (i,j)
+                                # Flag for completion.
+                                invalid_spot = False
+                    else:
+                        charity = True
 
-def training_data(N, paths, g):
+
+def training_data(N, paths, g,loud=[]):
     """
-    This generates training data for the monkey with user input. Only tracks
-    the 
+    This generates training data for the monkey with user input.
     
     Args:
         N: The number of ticks in the training data.
         paths: A list of paths leading to the data files. One path must be
             present for each monkey in the grid.
         g: The grid to generate training data from.
+        loud: Default []. List of monkey indeces to watch.
     """
     for n in range(N):
         # Tick the monkeys
-        foods, actions, surroundings = g.tick(2, loud=True)
+        foods, actions, surroundings = g.tick(2, loud=loud)
         # Iterate through the paths, surroundings, and actions
         for path, food, action, surr in zip(paths, foods, actions, surroundings):
             # Write the data to file
@@ -268,6 +290,12 @@ def dqn_training(g, N, gamma, lr, \
         iteration number, second number is average loss over the
         iterations leading up to this report.
     """
+    # Determine if we want to watch
+    if watch:
+        loud = [0]
+    else:
+        loud = []
+
     # Unpack epsilon if it exists
     epsilon_needed = False
     if epsilon_data != (0,0,0):
@@ -304,7 +332,7 @@ def dqn_training(g, N, gamma, lr, \
         p = p_new
 
         # 2) Get the consequent state (move the monkey).
-        g.tick(1, directions = [a], invincible = True, loud=watch, wait=False)
+        g.tick(1, directions = [a], invincible = True, loud=loud, wait=False)
         state_old = state_new
         sight_new = g.surroundings(g.monkeys[0].pos)
         food_new = g.monkeys[0].food
@@ -349,153 +377,3 @@ def dqn_training(g, N, gamma, lr, \
         optimizer.step()
 
     return total_reward
-
-
-
-def trainDQN(N, g, gamma, epsilon0, epsilonF, nEpsilon, memoryLength,
-    lr = 0.01, loud = False, showEvery=1):
-    """
-    This function trains a monkey with a brain of class BrainDQN
-    on a grid.
-
-    The DQN algorihm:
-    1) Get the policy's action.
-    2) Get the consequent state (move the monkey).
-    3) Get the immediate reward from the grid.
-    4) Calculate the loss
-        a) Calculate the quality of the move undertaken Q(s,a).
-        b) Calculate the max_a Q(s',a) where s' is the consequent
-           state of performing a from the state s.
-        c) delta = Q(s,a) - r - gamma*max_a Q(s', a)
-           where r is the immediate loss measured from the system.
-        d) Loss is the Huber loss (smooth L1 loss) of delta.
-
-
-    Args:
-        N: The number of iterations of training to do.
-        g: The grid containing a monkey containing a brain of class
-            BrainDQN.
-        gamma: The discount for the Bellman equation.
-        epsilon0: The initial value for epsilon for the epsilon-greedy
-            policy.
-        epsilonF: The final value for epsilon.
-        nEpsilon: The decay rate for epsilon.
-        lr: Default 0.01. The learning rate.
-        loud: Default False. If true, prints the game screen, and the loss
-        for each iteration.
-        showEvery: Set this to a natural number to show the progress every
-            showEvery iterations.
-    """
-    # Define the optimizer
-    optimizer = torch.optim.RMSprop(g.monkeys[0].brain.parameters(), lr=lr)
-    totalReward = 0
-
-    # Calculate state for the first time
-    surroundingsPrime, _ = g.surroundingVector(g.monkeys[0].pos)
-    # Next we need to get the monkey's food level.
-    foodPrime = torch.tensor([g.monkeys[0].food])
-    # Compile these into a state vector.
-    s1Prime = torch.cat((foodPrime, surroundingsPrime))
-    s1Prime = s1Prime.float()
-
-    # Define the memory
-    memory = []
-    # If the memory is empty, just set the monkey to think it has
-    # been sitting here for a few turns.
-    for i in range(memoryLength):
-        memory.append(s1Prime)
-    sPrime = torch.cat(tuple(memory))
-
-    # Iterate N times
-    for n in range(N):
-        if loud:
-            print('------------------------------')
-        # 1) Get the policy's action.
-        # We will first compute epsilon
-        epsilon = epsilonF + (epsilon0-epsilonF)*math.exp(-n/nEpsilon)
-        # Next, we need to first get the state. This
-        # comes from the previous iteration
-        surroundings = surroundingsPrime
-        food = foodPrime
-        s = sPrime
-        # Compute the policy's best action.
-        a = g.monkeys[0].brain.pi(s, epsilon, loud=loud)
-        # 2) Get the consequent state sPrime
-        # First we need to convert the action to its string form so
-        # we can interface with the grid.
-        actionString = Roomgen.WASD[int(a.max(0)[1])]
-        # Move the monkey.
-        g.tick(control='manual', directions=[actionString], wait=True,
-            quiet = not loud, invincible=True)
-        # Give the monkey a banana for free if it died of hunger
-        charity = False
-        if g.monkeys[0].food < 0:
-            g.monkeys[0].eat(1)
-            charity = True
-        # Get the new state, starting with vision
-        surroundingsPrime, _ = g.surroundingVector(g.monkeys[0].pos)
-        # Next we need to get the monkey's food level.
-        foodPrime = torch.tensor([g.monkeys[0].food])
-        # Compile these into a state vector.
-        s1Prime = torch.cat((foodPrime, surroundingsPrime))
-        s1Prime = s1Prime.float()
-        # Update the memory
-        memory.append(s1Prime)
-        del memory[0]
-        # Get the total state with memory 
-        sPrime = torch.cat(tuple(memory))
-
-        # 3) Determine the immediate reward.
-        # If the monkey dies, give some crazy low reward
-        if g.monkeys[0].dead:
-            r = torch.tensor(-10000.0)
-            # Need to recussitate the monkey
-            g.monkeys[0].dead = False
-            # If the monkey died of hunger, we won't penalize it too
-            # much right now.
-            if charity:
-                r = torch.tensor(-50.0)
-        else:
-            # Otherwise the immediate reward is just the change in food.
-            r = foodPrime - food
-            # Make sure this is a float
-            r = r.float()
-        # Add the immediate reward to the total reward counter
-        totalReward += float(r.view(1)[0])
-
-        # 4) Calculate the loss
-        # a) Find out what quality is assigned to the move that was taken.
-        # Note: The tensors need to be reshaped from size (0,n) to size (1,n)
-        Qsa = g.monkeys[0].brain(s.view(1,len(s)), a.view(1,len(a)))
-        # Recast Q(s, a) to a 1-tensor
-        Qsa = Qsa.view(1)
-        # b) Calculate maxa = argmax_a Q(s', a)
-        maxa = g.monkeys[0].brain.maxa(sPrime)
-        # Calculate max_a Q(s', a)
-        maxaQsPrimea = g.monkeys[0].brain(sPrime.view(1,len(sPrime)), \
-            maxa.view(1,len(maxa)))
-        # Cast max_a Q(s', a) to a 1-tensor
-        maxaQsPrimea = maxaQsPrimea.view(1)
-        # c) Calculate  delta
-        delta = Qsa - r - gamma*maxaQsPrimea
-        if loud or n%showEvery == 0:
-            print(n,'/',N,sep='')
-            # Display the delta value
-            print('delta = Q(s,'+actionString+') - r - gamma * max_a Q(s\', a) =', \
-                Qsa.item(), '-', r.item(), '-', gamma, '*', maxaQsPrimea.item(), \
-                '=', delta.item())
-            # Display the average reward per turn to date.
-            print(totalReward/(n+1), 'rpt')
-            # print('s', s[:20])
-            # print('a', a)
-            # print('s\'', sPrime[:20])
-            # print('max_a', a)
-        # d) Calculate loss
-        loss = torch.nn.functional.smooth_l1_loss(delta, torch.zeros(1))
-
-        # Optimize the model
-        optimizer.zero_grad()
-        loss.backward()
-        for param in g.monkeys[0].brain.parameters():
-            param.grad.data.clamp_(-1,1)
-        optimizer.step()

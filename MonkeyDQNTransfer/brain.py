@@ -196,17 +196,18 @@ class BrainLinearAI(BrainDQN):
 
         # Define the base values and powers
         T = torch.zeros((len(gl.BLOCK_TYPES),2,2))
-        T[gl.INDEX_BARRIER] = torch.FloatTensor([[-0.1,0.1],
-                                                [-0.1,-0.1]])
-        T[gl.INDEX_MONKEY] = 0.1*torch.eye(2)
-        T[gl.INDEX_BANANA] = torch.eye(2)
-        T[gl.INDEX_DANGER] = -4.0*torch.FloatTensor([[1, 0],
-                                                 [ 0,1]])
+        T[gl.INDEX_BARRIER] = torch.FloatTensor([[-2,0.1],
+                                                [-0.1,-2]])
+        T[gl.INDEX_MONKEY] = 0.5*torch.eye(2)
+        T[gl.INDEX_BANANA] = torch.FloatTensor([[4.1, 0.1],
+                                                 [0,4]])
+        T[gl.INDEX_DANGER] = torch.FloatTensor([[-2.1, 1],
+                                                 [-1,-2.1]])
         p = torch.zeros(len(gl.BLOCK_TYPES))
-        p[gl.INDEX_BARRIER] = 4
+        p[gl.INDEX_BARRIER] = 2
         p[gl.INDEX_MONKEY] = 1
         p[gl.INDEX_BANANA] = 3
-        p[gl.INDEX_DANGER] = 5
+        p[gl.INDEX_DANGER] = 4
 
         # Calculate radius
         radius = len(gl.SIGHT)//2
@@ -229,7 +230,7 @@ class BrainLinearAI(BrainDQN):
                 self.value_factor[i,j,:,:] = Tv
 
     def pi(self, s):# Set default policy.
-        return self.pi_epsilon_greedy(s, 0.07)
+        return self.pi_greedy(s)
 
     def forward(self, s):
         """
@@ -291,8 +292,11 @@ class BrainLinearAI(BrainDQN):
                 # Check if this spot is populated
                 if 1 in (vision[:,i,j] > 0):
                     # The spot is populated. Calculate the vector.
-                    value_sum += torch.matmul(vision[:,i,j].float()[None],\
+                    value_add = torch.matmul(vision[:,i,j].float()[None],\
                         self.value_factor[i,j,:,:]).view(2)
+                    value_sum += value_add
+                    # if i in [3,4,5,6,7] and j in [3,4,5,6,7]:
+                    #     print(i,j,value_add.tolist())
 
 
         # Now we just re-index the value sum
