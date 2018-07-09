@@ -14,3 +14,15 @@ burkelibrockelbank.herokuapp.com
 
 DEVNOTES
 Indexing is to be done in matrix indexing format ((row, column) with (0,0) at the top left) unless otherwise stated.
+
+TESTING LINEAR MODEL AGAINST AI
+An AI was developed to navigate the monkey game. This AI was then used to generate over 1.3 million turns of gameplay. A linear model was trained with this data. Reinforcement learning was attempted after this, but no increase in the accuracy of the quality function was found so this training was reverted.
+
+The models were scored against eachother based on the amount of food they could collect in 30 turns averaged over 1000 random placements. This was repeated five times each.
+
+ Model | Score
+-------+-------
+Linear |  6.45, 6.923, 6.739, 7.158, 6.906
+    AI | 39.341, 38.701, 39.334, 40.7, 39.474
+
+It is clear that the linear model for the monkey brain is insufficiently complex for modelling the artificial intelligence.

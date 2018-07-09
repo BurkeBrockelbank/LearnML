@@ -327,7 +327,7 @@ class BrainLinear(BrainDQN):
         # Initialize the parent class
         BrainDQN.__init__(self)
         # Set the default policy
-        self.pi = self.pi_probabilistic
+        self.pi = self.pi_epsilon_greedy
 
         # Initialize the neural network
         # We just need to take the input size:
@@ -429,3 +429,57 @@ class BrainV1(BrainDQN):
         Qs = F.relu(self.EV_linear2(h))
 
         return Qs
+
+class BrainV2(BrainDQN):
+    """
+    This implements the second approach of the monkey brain. It is a more
+    conventional CNN.
+
+    This brain has no memory implementation.
+    """
+    def __init__(self):
+        """
+        Initialize the architecture of the neural net.
+        """
+        # Initialize the parent class
+        BrainDQN.__init__(self)
+        # Set the default policy
+        self.pi = self.pi_epsilon_greedy
+
+        # Create convolutional layers of neural network.
+        self.l1 = nn.Conv2d(4,4,3,padding=1)
+        self.l2 = nn.Conv2d(4,6,3)
+        self.l3 = nn.Conv2d(6,4,3)
+        self.l4 = nn.Conv2d(4,1,3)
+
+        # Create fully connected layers
+        self.l5 = nn.Linear(26,9)
+        self.l6 = nn.Linear(9,5)
+
+    def forward(self, s):
+        """
+        Args:
+            s: The state of the system.
+        
+        Returns:
+            0: 5-tensor of qualities.
+        """
+        # Unpack state
+        food, vision = s
+
+        # Convolutional layers
+        h = F.relu(self.l1(vision[None].float()))
+        h = F.relu(self.l2(h))
+        h = F.relu(self.l3(h))
+        h = F.relu(self.l4(h))
+
+        # Fully connected layers
+        # First flatten
+        h = h.view(-1)
+        # Add in food
+        h = torch.cat((torch.FloatTensor([food]),h))
+        h = F.relu(self.l5(h))
+        Q = self.l6(h)
+
+        return Q
+

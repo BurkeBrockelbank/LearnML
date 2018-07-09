@@ -106,7 +106,7 @@ def training_data(N, paths, g,loud=[]):
             outF.write('(')
             outF.write(str(food))
             outF.write(',')
-            outF.write(str(action))
+            outF.write(str(int(action)))
             outF.write(',')
             surr_string = str(surr)
             surr_string = surr_string.replace('tensor','torch.tensor')
@@ -117,7 +117,8 @@ def training_data(N, paths, g,loud=[]):
             outF.write('\n')
             outF.close()
 
-def supervised_training(epochs, paths, brain, gamma, max_discount, lr,reports):
+def supervised_training(epochs, batches, paths, brain, gamma, \
+    max_discount, lr, reports, intermediate = ''):
     """
     This performs supervised training on the monkey. 
     
@@ -129,6 +130,9 @@ def supervised_training(epochs, paths, brain, gamma, max_discount, lr,reports):
         max_discount: The maximum factor to allow for discount in calculating
         qualities.
         lr: The learning rate to use.
+        reports: The number of times to print progress.
+        intermediate: The file to save intermediate brain trainings to.
+
 
     Returns:
         0: Training data in the form of list of tuples. First element is epoch
@@ -136,20 +140,22 @@ def supervised_training(epochs, paths, brain, gamma, max_discount, lr,reports):
     """
     # Set the brain to training mode
     brain.train()
-    # First concatenate all the training data and decorrelate it by shuffling.
+
+    all_data = []
+
+    # First read all training data
     all_lines = []
     for path in paths:
+        print('Reading', path)
         in_f = open(path, 'r')
         in_lines = in_f.readlines()
         in_f.close()
         # parse the input lines
         data = [eval(x.rstrip()) for x in in_lines]
         all_lines.append(data)
-    # As a reminder, the data structure is
-    # food (int), action (int), board state (torch.tensor torch.uint8)
-    # Now we need to calculate the quality for each of these
-    all_data = []
-    for data in all_lines:
+        # As a reminder, the data structure is
+        # food (int), action (int),board state (torch.tensor dtype=torch.uint8)
+        # Now we need to calculate the quality for each of these
         food_vals = [x[0] for x in data]
         # We now will subtract subsequent food values to get the change in food
         food_diffs = [food_vals[i]-food_vals[i-1] for i in \
@@ -164,8 +170,8 @@ def supervised_training(epochs, paths, brain, gamma, max_discount, lr,reports):
         quals = quals[1:]
         quals = quals[::-1]
         # Insert the quality into the data
-        new_data = [(torch.tensor(quality),) + state_tuple for state_tuple, quality \
-            in zip(new_data, quals)]
+        new_data = [(torch.tensor(quality),) + state_tuple \
+            for state_tuple, quality in zip(new_data, quals)]
         # Add to the list of data sets
         all_data.append(new_data)
     # Since the final quality values concatenate the series short, we should
@@ -178,8 +184,15 @@ def supervised_training(epochs, paths, brain, gamma, max_discount, lr,reports):
     # Concatenate the data sets.
     data_set = [el for one_path in all_data for el in one_path]
 
-    # Permute the data to decorrelate it.
-    random.shuffle(data_set)
+    # Calculate batch data
+    batch_length = len(data_set)//batches
+
+    # Due to symmetry, we can increase the data set eightfold.
+    data_symmetric = []
+    # Still unimplemented
+
+    # Report status
+    print('Data loaded')
 
     # Now we do the actual learning!
     # Define the loss function
@@ -189,43 +202,59 @@ def supervised_training(epochs, paths, brain, gamma, max_discount, lr,reports):
     loss_record = []
     # Iterate through epochs
     for epoch in range(epochs):
+        # Permute the data to decorrelate it.
+        random.shuffle(data_set)
+        # Separate into batches
+        batched_data = []
+        for batch_no in range(batches-1):
+            batch_start = batch_no*batch_length
+            batched_data.append(data_set[batch_start:batch_start+batch_length])
+        batched_data.append(data_set[(batches-1)*batch_length:])
         # See if we are reporting this time
         if epoch%(epochs//reports) == epochs%(epochs//reports):
             report_this = True
             total_loss = 0
         else:
             report_this = False
+
         # Iterate through data
-        for real_Q, food, action, vision in data_set:
-            s = (food, vision)
-            # Get the quality of the action the monkey did
-            predicted_Q = brain.Q(s,action)
-            # Calculate the loss
-            loss = criterion(predicted_Q, real_Q)
-            if loss > 1000:
-                # There is some issue with the network occasionally spitting
-                # out huge values. We will cap the maximum value. This is
-                # done by recalculating the loss with something designed to
-                # just be just 1000 away from the prediction. To get this
-                # value, we need to pull the value from predicted_Q and
-                # remove its needs_gradient property. This is done by casting
-                # to a floating point number.
-                raise RuntimeWarning('Loss has been calculated as ridiculous.')
-                loss = criterion(predicted_Q, \
-                    torch.FloatTensor(float(predicted_Q)-1000))
-            # Zero the gradients
-            optimizer.zero_grad()
-            # perform a backward pass
-            loss.backward()
-            # Update the weights
-            optimizer.step()
-            # Add to total loss
+        for batch_no, batch_set in enumerate(batched_data):
             if report_this:
-                total_loss += float(loss)
+                print('Epoch', epoch, 'Batch', batch_no, 'begun')
+            for real_Q, food, action, vision in batch_set:
+                s = (food, vision)
+                # Get the quality of the action the monkey did
+                predicted_Q = brain.Q(s,action)
+                # Calculate the loss
+                loss = criterion(predicted_Q, real_Q)
+                if loss > 1000:
+                    # There is some issue with the network occasionally spitting
+                    # out huge values. We will cap the maximum value. This is
+                    # done by recalculating the loss with something designed to
+                    # just be just 1000 away from the prediction. To get this
+                    # value, we need to pull the value from predicted_Q and
+                    # remove its needs_gradient property. This is done by casting
+                    # to a floating point number.
+                    raise RuntimeWarning('Loss has been calculated as ridiculous.')
+                    loss = criterion(predicted_Q, \
+                        torch.FloatTensor(float(predicted_Q)-1000))
+                # Zero the gradients
+                optimizer.zero_grad()
+                # perform a backward pass
+                loss.backward()
+                # Update the weights
+                optimizer.step()
+                # Add to total loss
+                if report_this:
+                    total_loss += float(loss)
         # Add to loss record
         if report_this:
             loss_record.append((epoch, total_loss/len(data_set)))
             print('Epoch', epoch, 'loss', total_loss/len(data_set))
+
+        # Save brain
+        if intermediate != '':
+            torch.save(brain.state_dict(), intermediate)
 
     return loss_record
 
@@ -319,7 +348,11 @@ def dqn_training(g, N, gamma, lr, \
 
     # Define optimizer
     optimizer = torch.optim.RMSprop(g.monkeys[0].brain.parameters(), lr=lr)
+    # Define loss criterion
+    criterion = nn.SmoothL1Loss(size_average=False)
 
+
+    loss_record = []
 
     # Iterate N times
     for n in range(N):
@@ -364,16 +397,85 @@ def dqn_training(g, N, gamma, lr, \
         # c) Calculate the loss difference
         delta = Q - r - gamma * Q_new
         # d) Calculate the loss as Huber loss.
-        loss = torch.nn.functional.smooth_l1_loss(delta, torch.zeros(1))
+        loss = criterion(delta, torch.zeros(1))
+        loss_record.append((n,float(loss)))
 
         if watch:
             print(gl.WASD[a], 'with probability', p)
-            print('had quality', Q, 'r', r)
-            input('delta ' + str(delta))
+            print('Q(s,', gl.WASD[a], ') = ', round(float(Q),3), sep='')
+            print('--> r + gamma * Q(s\',', gl.WASD[a_new], ')', sep='')
+            print('  = ', r, ' + ', gamma, ' * ', round(float(Q_new),3), sep='')
+            print('  = ', round(float(r+gamma*Q_new),3), sep='')
+            print('delta = ' + str(delta))
+            input('loss = ' + str(loss))
 
         # Optimize the model
         optimizer.zero_grad()
         loss.backward(retain_graph= (n!=N-1))
         optimizer.step()
 
-    return total_reward
+    return loss_record
+
+def test_model(g, N, reset):
+    """
+    This function will test the first monkey in the grid given for its
+    score in the game after N resets of some number of turns each. The
+    score is the sum of the food at the end of each reset.
+
+    Args:
+        g: The grid that the monkeys are on.
+        N: The number of resets to do.
+        reset: The number of turns per reset.
+
+    Returns:
+        0: Average score over all resets.
+    """
+    # Set all monkeys to evaluation mode
+    for monkey in g.monkeys:
+        monkey.brain.eval()
+
+    # Initialize score.
+    total_score = 0
+
+    # Iterate over resets.
+    for n in range(N):
+        print('Reset', n)
+
+        # Randomize position
+        invalid_spot = True
+        while invalid_spot:
+            i = random.randrange(g.width)
+            j = random.randrange(g.height)
+            # This spot can have a monkey placed on it
+            if g.channel_map[gl.INDEX_BARRIER,i,j] == 0 and \
+                g.channel_map[gl.INDEX_DANGER,i,j] == 0:
+                # First teleport the monkey on the channel map
+                g.teleport_monkey(g.monkeys[0].pos, (i,j))
+                # Update the position in the monkey object
+                g.monkeys[0].pos = (i,j)
+                # Flag for completion.
+                invalid_spot = False
+
+        # Set food value
+        g.monkeys[0].food = reset+1
+
+        # Revive monkey if dead
+        g.monkeys[0].dead = False
+
+        # Do turns
+        for turn in range(reset):
+            g.tick(0, invincible = True)
+            # Check if dead
+            if g.monkeys[0].dead:
+                # No score contribution
+                g.monkeys[0].food = 0
+                break
+
+        # Reset turn number
+        g.turn_count = 0
+        g.monkeys[0].age = 0
+
+        # Add to score
+        total_score += g.monkeys[0].food
+
+    return total_score/N

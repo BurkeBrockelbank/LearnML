@@ -50,8 +50,12 @@ import random
 #         [0,1,1,1,1,1,1,1,1,1,0],
 #         [0,0,1,1,1,1,1,1,1,0,0],
 #         [0,0,0,1,1,1,1,1,0,0,0]]
-SIGHT = torch.ones((11,11), dtype=torch.uint8)
+SIGHT11 = torch.ones((11,11), dtype=torch.uint8)
+
+
+SIGHT5 = torch.ones((5,5), dtype=torch.uint8)
 # Note: SIGHT must be square and have an uneven number of rows.
+SIGHT = SIGHT11
 
 # Define the block types
 BLOCK_TYPES = ['#', 'm', 'b', 'd']
@@ -114,3 +118,13 @@ for i in range(RAND_ROOM_WIDTH):
 		if i in [0, RAND_ROOM_WIDTH-1] or j in [0, RAND_ROOM_WIDTH-1]:
 			RAND_ROOM[:,i,j] = torch.zeros(len(BLOCK_TYPES))
 			RAND_ROOM[INDEX_BARRIER,i,j] = 1
+
+EMPTY_ROOM = torch.zeros((len(BLOCK_TYPES),RAND_ROOM_WIDTH,RAND_ROOM_WIDTH), \
+	dtype=torch.uint8)
+
+# Cover with borders
+for i in range(RAND_ROOM_WIDTH):
+	for j in range(RAND_ROOM_WIDTH):
+		if i in [0, RAND_ROOM_WIDTH-1] or j in [0, RAND_ROOM_WIDTH-1]:
+			EMPTY_ROOM[:,i,j] = torch.zeros(len(BLOCK_TYPES))
+			EMPTY_ROOM[INDEX_BARRIER,i,j] = 1
