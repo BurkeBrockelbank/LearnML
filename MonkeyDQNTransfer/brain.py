@@ -437,7 +437,7 @@ class BrainV2(BrainDQN):
 
     This brain has no memory implementation.
     """
-    def __init__(self):
+    def __init__(self, gamma):
         """
         Initialize the architecture of the neural net.
         """
@@ -454,7 +454,12 @@ class BrainV2(BrainDQN):
 
         # Create fully connected layers
         self.l5 = nn.Linear(26,9)
-        self.l6 = nn.Linear(9,5)
+        self.l6 = nn.Linear(9,8)
+        self.l7 = nn.Linear(8,5)
+
+        # Set final weights to reflect zero reward
+        reward = 1/(gamma-1)
+        nn.init.constant_(self.l7.bias, reward)
 
     def forward(self, s):
         """
@@ -479,7 +484,68 @@ class BrainV2(BrainDQN):
         # Add in food
         h = torch.cat((torch.FloatTensor([food]),h))
         h = F.relu(self.l5(h))
-        Q = self.l6(h)
+        h = F.relu(self.l6(h))
+        Q = self.l7(h)
+
+        return Q
+
+class BrainProgression(BrainDQN):
+    """
+    This implements the second approach of the monkey brain. It is a more
+    conventional CNN.
+
+    This brain has no memory implementation.
+    """
+    def __init__(self):
+        """
+        Initialize the architecture of the neural net.
+        """
+        # Initialize the parent class
+        BrainDQN.__init__(self)
+        # Set the default policy
+        self.pi = self.pi_epsilon_greedy
+
+        # Create convolutional layers of neural network.
+        self.l1 = nn.Conv2d(4,4,3,padding=1)
+        self.end = nn.Linear(485,9)
+        self.l2 = nn.Conv2d(4,6,3)
+        self.l3 = nn.Conv2d(6,4,3)
+        self.l4 = nn.Conv2d(4,1,3)
+
+        # Create fully connected layers
+        self.l5 = nn.Linear(26,9)
+        self.l6 = nn.Linear(9,8)
+        self.l7 = nn.Linear(8,5)
+
+    def forward(self, s):
+        """
+        Args:
+            s: The state of the system.
+        
+        Returns:
+            0: 5-tensor of qualities.
+        """
+        # Unpack state
+        food, vision = s
+
+        # Convolutional layers
+        # h = F.relu(self.l1(vision[None].float()))
+        vision_float = vision.float().view(-1)
+        food_float = torch.FloatTensor([food])
+        state = torch.cat((food_float,vision_float),0)
+        h = F.relu(self.end(state))
+        # h = F.relu(self.l2(h))
+        # h = F.relu(self.l3(h))
+        # h = F.relu(self.l4(h))
+
+        # # Fully connected layers
+        # # First flatten
+        # h = h.view(-1)
+        # # Add in food
+        # h = torch.cat((torch.FloatTensor([food]),h))
+        # h = F.relu(self.l5(h))
+        h = F.relu(self.l6(h))
+        Q = self.l7(h)
 
         return Q
 

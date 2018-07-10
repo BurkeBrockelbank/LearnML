@@ -198,7 +198,7 @@ def supervised_training(epochs, batches, paths, brain, gamma, \
     # Define the loss function
     criterion = nn.SmoothL1Loss(size_average=False)
     # Create an optimizer
-    optimizer = torch.optim.RMSprop(brain.parameters(), lr=lr)
+    optimizer = torch.optim.Adam(brain.parameters(), lr=lr)
     loss_record = []
     # Iterate through epochs
     for epoch in range(epochs):
@@ -286,8 +286,110 @@ def load_records(path):
         return sum(records, [])
 
 
+def curated_bananas_dqn(g, level, N, gamma, lr, food,\
+    epsilon = lambda x: 0, watch = False):
+    """
+    This function trains the monkey with curated examples. For example,
+    at level 1, we will have a banana one block away from the monkey:
+     b       b       b                                         
+      m      m      m     bm     mb     m      m      m             
+                                       b       b       b 
+    Level two has the banana 2 or 1 away and so on.
+
+    Args:
+        g: The grid with a single monkey to train. Channel map will be
+            rewritten.
+        level: The level of curation to train.
+        N: The number of iterations of training to do.
+        lr: learning rate.
+        food: The maximum food level. All food levels will be used randomly
+            up to this level.
+        epsilon_data: Default lambda function returning zero. A function that
+            calculates epsilon.
+        watch: Default False. True if you want to watch the monkey train.
+    """
+    # Build the channel map
+    map_size = len(gl.SIGHT)+4*level
+    radius = map_size//2
+    g.channel_map = torch.zeros((len(gl.BLOCK_TYPES), map_size, map_size), \
+        dtype = torch.uint8)
+    # Build walls
+    for i in range(map_size):
+        for j in [0, -1]:
+            # Place barrier
+            g.channel_map[gl.INDEX_BARRIER, i, j] = 1
+            # Place barrier in transpose position
+            g.channel_map[gl.INDEX_BARRIER, j, i] = 1
+
+
+    # Place monkey for new channel map
+    g.monkeys[0].pos = (0,0)
+    g.replace_monkeys()
+
+    # Update width and height of channel map
+    g.width = len(g.channel_map)
+    g.height = len(g.channel_map[0])
+
+    # Unpack epsilon if it exists
+    epsilon_needed = False
+    if g.monkeys[0].brain.pi == g.monkeys[0].brain.pi_epsilon_greedy:
+        epsilon_needed = True
+
+    # Initialize banana position variables
+    banana_i = 0
+    banana_j = 0
+
+    # Initialize loss record
+    loss_record = []
+
+    # Calculate the number of turns the monkey has to get banana.
+    turn_allowance = math.ceil((2*level**2 + 3*level + 1)/(2*level + 2))
+
+    for n in range(N):
+        if n%100 == 0:
+            print('Curated training', n, 'epsilon', epsilon(n))
+        # Assign food
+        g.monkeys[0].food = random.randrange(2*level,food)
+
+        # Remove old bananas
+        g.channel_map[gl.INDEX_BANANA] = torch.zeros((map_size, map_size), \
+            dtype = torch.uint8)
+
+        # Assign banana position
+        position_chosen = False
+        while not position_chosen:
+            banana_i = random.randrange(radius-level, radius+level+1)
+            banana_j = random.randrange(radius-level, radius+level+1)
+            if (banana_i, banana_j) != (radius, radius):
+                position_chosen = True
+        g.channel_map[gl.INDEX_BANANA, banana_i, banana_j] = 1
+
+        # Replace monkey
+        g.teleport_monkey(g.monkeys[0].pos, (radius,radius))
+        g.monkeys[0].pos = (radius,radius)
+
+        # Calculate epsilon
+        if epsilon_needed:
+            epsilon_pass = lambda x : epsilon(n)
+        else:
+            epsilon_pass = epsilon
+
+        # Do a run of dqn training on monkey
+        loss_record_1 = dqn_training(g, turn_allowance, gamma, lr, \
+            epsilon = epsilon_pass, watch = watch)
+        loss = sum(list(zip(*loss_record_1))[1])
+        loss_record.append((n, loss))
+
+        # Reset turn counter
+        g.turn_count = 0
+
+    return loss_record
+
+
+
+
 def dqn_training(g, N, gamma, lr, \
-    epsilon_data = (0,0,0), watch = False):
+    epsilon = lambda x: 0, watch = False):
     """
     This function trains a monkey with reinforcement learning.
 
@@ -308,8 +410,8 @@ def dqn_training(g, N, gamma, lr, \
             superclass Brain_DQN.
         N: The number of iterations of training to do.
         gamma: The discount for the Bellman equation.
-        epsilon_data: A tuple giving the initial and final values for
-            epsilon in an epsilon greedy policy as well as the decay rate.
+        epsilon: Default lambda function returning zero. A function that gives
+            the value for epsilon based on epoch number.
         lr: The learning rate.
         watch: Default False. If True, will wait for the user to look at every
             iteration of the training.
@@ -327,8 +429,7 @@ def dqn_training(g, N, gamma, lr, \
 
     # Unpack epsilon if it exists
     epsilon_needed = False
-    if epsilon_data != (0,0,0):
-        epsilon_start, epsilon_end, n_epsilon = epsilon_data
+    if g.monkeys[0].brain.pi == g.monkeys[0].brain.pi_epsilon_greedy:
         epsilon_needed = True
 
     # Instantiate total reward
@@ -340,14 +441,14 @@ def dqn_training(g, N, gamma, lr, \
     food_new = g.monkeys[0].food
     state_new = (food_new, sight_new)
     if epsilon_needed:
-        Q_new, a_new, p_new = g.monkeys[0].brain.pi(state_new, epsilon_start)
+        Q_new, a_new, p_new = g.monkeys[0].brain.pi(state_new, epsilon(0))
     else:
         Q_new, a_new, p_new = g.monkeys[0].brain.pi(state_new)
     g.monkeys[0].brain.train()
 
 
     # Define optimizer
-    optimizer = torch.optim.RMSprop(g.monkeys[0].brain.parameters(), lr=lr)
+    optimizer = torch.optim.Adam(g.monkeys[0].brain.parameters(), lr=lr)
     # Define loss criterion
     criterion = nn.SmoothL1Loss(size_average=False)
 
@@ -389,9 +490,7 @@ def dqn_training(g, N, gamma, lr, \
         # This was already done in part 1.
         # b) Calculate the maximum quality of the subsequent move
         if epsilon_needed:
-            epsilon = (epsilon_start - epsilon_end)*math.exp(-(n+1)/n_epsilon)\
-                + epsilon_end
-            Q_new, a_new, p_new = g.monkeys[0].brain.pi(state_new, epsilon)
+            Q_new, a_new, p_new = g.monkeys[0].brain.pi(state_new, epsilon(n))
         else:
             Q_new, a_new, p_new = g.monkeys[0].brain.pi(state_new)
         # c) Calculate the loss difference
