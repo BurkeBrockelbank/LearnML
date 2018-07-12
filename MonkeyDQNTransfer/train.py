@@ -308,6 +308,20 @@ def curated_bananas_dqn(g, level, N, gamma, lr, food,\
             calculates epsilon.
         watch: Default False. True if you want to watch the monkey train.
     """
+    # Set reporting up
+    loud = []
+    if watch:
+        loud = [0]
+
+    # Set monkey to train
+    g.monkeys[0].brain.train()
+
+    # Deal with level zero special case (only adjacent)
+    level_zero = False
+    if level == 0:
+        level = 1
+        level_zero = True
+
     # Build the channel map
     map_size = len(gl.SIGHT)+4*level
     radius = map_size//2
@@ -321,6 +335,9 @@ def curated_bananas_dqn(g, level, N, gamma, lr, food,\
             # Place barrier in transpose position
             g.channel_map[gl.INDEX_BARRIER, j, i] = 1
 
+    if level_zero:
+        zero_positions = [(radius+1,radius), (radius-1,radius),
+            (radius,radius+1), (radius,radius-1)]
 
     # Place monkey for new channel map
     g.monkeys[0].pos = (0,0)
@@ -344,6 +361,12 @@ def curated_bananas_dqn(g, level, N, gamma, lr, food,\
 
     # Calculate the number of turns the monkey has to get banana.
     turn_allowance = math.ceil((2*level**2 + 3*level + 1)/(2*level + 2))
+    if level_zero:
+        turn_allowance = 1
+
+    # Report actions
+    print("Curated training beginning. Level", level, "allowing", \
+        turn_allowance, "turns.")
 
     for n in range(N):
         if n%100 == 0:
@@ -358,9 +381,13 @@ def curated_bananas_dqn(g, level, N, gamma, lr, food,\
         # Assign banana position
         position_chosen = False
         while not position_chosen:
-            banana_i = random.randrange(radius-level, radius+level+1)
-            banana_j = random.randrange(radius-level, radius+level+1)
-            if (banana_i, banana_j) != (radius, radius):
+            if not level_zero:
+                banana_i = random.randrange(radius-level, radius+level+1)
+                banana_j = random.randrange(radius-level, radius+level+1)
+                if (banana_i, banana_j) != (radius, radius):
+                    position_chosen = True
+            else:
+                banana_i, banana_j = random.choice(zero_positions)
                 position_chosen = True
         g.channel_map[gl.INDEX_BANANA, banana_i, banana_j] = 1
 
@@ -368,17 +395,104 @@ def curated_bananas_dqn(g, level, N, gamma, lr, food,\
         g.teleport_monkey(g.monkeys[0].pos, (radius,radius))
         g.monkeys[0].pos = (radius,radius)
 
-        # Calculate epsilon
-        if epsilon_needed:
-            epsilon_pass = lambda x : epsilon(n)
-        else:
-            epsilon_pass = epsilon
+        # Do a run of dqn training on monkey. The algorithm is slightly
+        # different than in regular reinforcement learning. The monkey is
+        # allowed to take a maximum of turn_allowance moves, but it will
+        # stop short if the monkey gets the banana.
+        # Pre loop:
+        #   a) Calculate state
+        #   b) Calculate policy
+        # Every turn:
+        #   a) Get policy action
+        #   b) Get subsequent state
+        #   c) Calculate immediate reward
+        #   d) Get loss
+        #   g) Step
 
-        # Do a run of dqn training on monkey
-        loss_record_1 = dqn_training(g, turn_allowance, gamma, lr, \
-            epsilon = epsilon_pass, watch = watch)
-        loss = sum(list(zip(*loss_record_1))[1])
-        loss_record.append((n, loss))
+        # a) Calculate state
+        sight_new = g.surroundings(g.monkeys[0].pos)
+        food_new = g.monkeys[0].food
+        state_new = (food_new, sight_new)
+        # b) Calculate policy
+        if epsilon_needed:
+            epsilon_n = epsilon(n)
+            Q_new, a_new, p_new = g.monkeys[0].brain.pi(state_new, epsilon_n)
+        else:
+            Q_new, a_new, p_new = g.monkeys[0].brain.pi(state_new)
+
+
+        # Define optimizer
+        optimizer = torch.optim.Adagrad(g.monkeys[0].brain.parameters(), lr=lr)
+        # Define loss criterion
+        criterion = nn.SmoothL1Loss(size_average=False)
+
+        # Initialize something to end before the turn allowance if we
+        # get to an end state
+        end_state = False
+        # Placeholder for total loss
+        total_loss = 0
+        # Iterate through all the allowable turns
+        for turn_count in range(turn_allowance):
+            if watch:
+                print('-----------------------')
+
+            # a) Get the policy's action.
+            Q = Q_new
+            a = a_new
+            p = p_new
+
+            # b) Get the consequent state (move the monkey).
+            g.tick(1, directions = [a], invincible = True, loud=loud, wait=False)
+            state_old = state_new
+            sight_new = g.surroundings(g.monkeys[0].pos)
+            food_new = g.monkeys[0].food
+            state_new = (food_new, sight_new)
+
+            # c) Get the immediate reward.
+            # Immediate reward is normally food difference.
+            r = state_new[0]-state_old[0]
+            # If the monkey got a banana, r will be positive. These
+            # are both end states
+            if r > 0:
+                end_state = True
+            # If the monkey is dead, it instead gets a large penalty
+            if g.monkeys[0].dead:
+                r = -50
+                g.monkeys[0].dead = False
+                end_state = True
+
+            # d) Calculate the loss
+            # b) Calculate the maximum quality of the subsequent move
+            if epsilon_needed:
+                Q_new, a_new, p_new = g.monkeys[0].brain.pi(state_new, epsilon_n)
+            else:
+                Q_new, a_new, p_new = g.monkeys[0].brain.pi(state_new)
+            # c) Calculate the loss difference
+            delta = Q - r - gamma * Q_new
+            # d) Calculate the loss as Huber loss.
+            loss = criterion(delta, torch.zeros(1))
+            total_loss += (float(loss))
+
+            if watch:
+                print(gl.WASD[a], 'with probability', p)
+                print('Q(s,', gl.WASD[a], ') = ', round(float(Q),3), sep='')
+                print('--> r + gamma * Q(s\',', gl.WASD[a_new], ')', sep='')
+                print('  = ', r, ' + ', gamma, ' * ', round(float(Q_new),3), sep='')
+                print('  = ', round(float(r+gamma*Q_new),3), sep='')
+                print('delta = ' + str(float(delta)))
+                input('loss = ' + str(float(loss)))
+
+            # Optimize the model
+            optimizer.zero_grad()
+            loss.backward(retain_graph= ((turn_count != turn_allowance-1) \
+                and not end_state))
+            optimizer.step()
+
+            if end_state:
+                break
+
+
+        loss_record.append((n, total_loss))
 
         # Reset turn counter
         g.turn_count = 0
