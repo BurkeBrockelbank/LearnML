@@ -507,7 +507,6 @@ class BrainProgression(BrainDQN):
 
         # Create convolutional layers of neural network.
         self.l1 = nn.Conv2d(4,4,3,padding=1)
-        self.end = nn.Linear(485,9)
         self.l2 = nn.Conv2d(4,6,3)
         self.l3 = nn.Conv2d(6,4,3)
         self.l4 = nn.Conv2d(4,1,3)
@@ -529,21 +528,17 @@ class BrainProgression(BrainDQN):
         food, vision = s
 
         # Convolutional layers
-        # h = F.relu(self.l1(vision[None].float()))
-        vision_float = vision.float().view(-1)
-        food_float = torch.FloatTensor([food])
-        state = torch.cat((food_float,vision_float),0)
-        h = F.relu(self.end(state))
-        # h = F.relu(self.l2(h))
-        # h = F.relu(self.l3(h))
-        # h = F.relu(self.l4(h))
+        h = F.relu(self.l1(vision[None].float()))
+        h = F.relu(self.l2(h))
+        h = F.relu(self.l3(h))
+        h = F.relu(self.l4(h))
 
-        # # Fully connected layers
-        # # First flatten
-        # h = h.view(-1)
-        # # Add in food
-        # h = torch.cat((torch.FloatTensor([food]),h))
-        # h = F.relu(self.l5(h))
+        # Fully connected layers
+        # First flatten
+        h = h.view(-1)
+        # Add in food
+        h = torch.cat((torch.FloatTensor([food]),h))
+        h = F.relu(self.l5(h))
         h = F.relu(self.l6(h))
         Q = self.l7(h)
 

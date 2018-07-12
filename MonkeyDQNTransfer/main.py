@@ -37,8 +37,8 @@ if __name__ == "__main__":
     batches = 10
     reports = 5
     N = 500
-    epsilon_start = 0.1
-    epsilon_end = 0.05
+    epsilon_start = 0.8
+    epsilon_end = 0.8
     n_epsilon = 2000
     epsilon_tuple = (epsilon_start, epsilon_end, n_epsilon)
     def epsilon(n):
@@ -55,26 +55,26 @@ if __name__ == "__main__":
     monkeys[0].pos = (len(room_start[1])//2,len(room_start[2])//2)
     g = grid.Grid(monkeys, room_start)
 
-    # Make data paths for the monkeys
-    paths = ['AIDATA\\AIData'+str(i)+'.txt' for i in range(50)][0:1]
+    # # Make data paths for the monkeys
+    # paths = ['AIDATA\\AIData'+str(i)+'.txt' for i in range(50)][0:3]
 
-    # Load brain from permanent memory
-    monkey_brain.load_state_dict(torch.load('brainsave_curated.txt'))
+    # # Load brain from permanent memory
+    # monkey_brain.load_state_dict(torch.load('brainsave_supervised.txt'))
 
     # # Train the monkey
-    # train_data = train.supervised_training(30, 3, paths, monkey_brain, \
+    # train_data = train.supervised_training(10, 3, paths, monkey_brain, \
     #     gamma, max_discount, lr_supervised, 10, intermediate='brain_intermediate')
 
     # # Save the brain
-    # torch.save(monkey_brain.state_dict(), 'brainsave_curated.txt')
+    # torch.save(monkey_brain.state_dict(), 'brainsave_supervised.txt')
 
     # Load brain from permanent memory
     monkey_brain.load_state_dict(torch.load('brainsave_curated.txt'))
 
     # Curated training
-    train.curated_bananas_dqn(g, 3, 10, gamma, 0, 20, watch = True)
+    train.curated_bananas_dqn(g, 1, 10, gamma, 0, 20, watch = True)
 
-    loss_report = train.curated_bananas_dqn(g, 3, 10000, gamma, \
+    loss_report = train.curated_bananas_dqn(g, 1, 10000, gamma, \
         lr_reinforcement, 20, epsilon = epsilon, watch = False)
 
     plt.title('Curated Learning ' + str(lr_reinforcement), )
@@ -84,7 +84,7 @@ if __name__ == "__main__":
     plt.plot(*zip(*loss_report))
     plt.show()
 
-    train.curated_bananas_dqn(g, 3, 10, gamma, 0, 20, watch = True)
+    train.curated_bananas_dqn(g, 1, 10, gamma, 0, 20, watch = True)
 
     input('Exit now to avoid saving')
     for i in range(100):

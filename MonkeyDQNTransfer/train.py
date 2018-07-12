@@ -505,8 +505,8 @@ def dqn_training(g, N, gamma, lr, \
             print('--> r + gamma * Q(s\',', gl.WASD[a_new], ')', sep='')
             print('  = ', r, ' + ', gamma, ' * ', round(float(Q_new),3), sep='')
             print('  = ', round(float(r+gamma*Q_new),3), sep='')
-            print('delta = ' + str(delta))
-            input('loss = ' + str(loss))
+            print('delta = ' + str(float(delta)))
+            input('loss = ' + str(float(loss)))
 
         # Optimize the model
         optimizer.zero_grad()
