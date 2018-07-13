@@ -542,3 +542,49 @@ class BrainProgression(BrainDQN):
 
         return Q
 
+class BrainFC(BrainDQN):
+    """
+    This implements the second approach of the monkey brain. With the idea
+    that perhaps the vision size is too small for convolutional analysis,
+    this brain has only fully connected layers.
+
+    This brain has no memory implementation.
+    """
+    def __init__(self):
+        """
+        Initialize the architecture of the neural net.
+        """
+        # Initialize the parent class
+        BrainDQN.__init__(self)
+        # Set the default policy
+        self.pi = self.pi_epsilon_greedy
+
+        # Create convolutional layers of neural network.
+        # Create fully connected layers
+        self.f0 = nn.Linear(485,50)
+        self.f1 = nn.Linear(50,9)
+        self.f2 = nn.Linear(9,8)
+        self.f3 = nn.Linear(8,5)
+
+    def forward(self, s):
+        """
+        Args:
+            s: The state of the system.
+        
+        Returns:
+            0: 5-tensor of qualities.
+        """
+        # Unpack state
+        food, vision = s
+
+        # Put the state in a vector
+        x = torch.cat((vision.float.view(-1), torch.FloatTensor([food])))
+
+        #
+        h = F.relu(self.f0(x))
+        h = F.relu(self.f1(h))
+        h = F.relu(self.f2(h))
+        Q = self.f3(h)
+
+        return Q
+

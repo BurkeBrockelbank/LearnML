@@ -365,8 +365,12 @@ def curated_bananas_dqn(g, level, N, gamma, lr, food,\
         turn_allowance = 1
 
     # Report actions
-    print("Curated training beginning. Level", level, "allowing", \
-        turn_allowance, "turns.")
+    if level_zero:
+        print("Curated training beginning. Level", 0, "allowing", \
+            turn_allowance, "turns.")
+    else:
+        print("Curated training beginning. Level", level, "allowing", \
+            turn_allowance, "turns.")
 
     for n in range(N):
         if n%100 == 0:
@@ -451,10 +455,6 @@ def curated_bananas_dqn(g, level, N, gamma, lr, food,\
             # c) Get the immediate reward.
             # Immediate reward is normally food difference.
             r = state_new[0]-state_old[0]
-            # If the monkey got a banana, r will be positive. These
-            # are both end states
-            if r > 0:
-                end_state = True
             # If the monkey is dead, it instead gets a large penalty
             if g.monkeys[0].dead:
                 r = -50
