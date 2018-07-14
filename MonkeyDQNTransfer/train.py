@@ -426,7 +426,7 @@ def curated_bananas_dqn(g, level, N, gamma, lr, food,\
 
 
         # Define optimizer
-        optimizer = torch.optim.Adagrad(g.monkeys[0].brain.parameters(), lr=lr)
+        optimizer = torch.optim.Adam(g.monkeys[0].brain.parameters(), lr=lr)
         # Define loss criterion
         criterion = nn.SmoothL1Loss(size_average=False)
 
@@ -569,8 +569,15 @@ def dqn_training(g, N, gamma, lr, \
 
     loss_record = []
 
+    # Percentile reports
+    one_percent = N//100
+    if one_percent == 0:
+        one_percent = N+1
+
     # Iterate N times
     for n in range(N):
+        if n%one_percent == 0:
+            print('Learning is ', n//one_percent, '% complete.', sep='')
         if watch:
             print('-----------------------')
 

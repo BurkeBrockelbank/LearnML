@@ -1,0 +1,97 @@
+TESTING LINEAR MODEL AGAINST AI
+An AI was developed to navigate the monkey game. This AI was then used to generate over 1.3 million turns of gameplay. A linear model was trained with this data. Reinforcement learning was attempted after this, but no increase in the accuracy of the quality function was found so this training was reverted.
+
+The models were scored against eachother based on the amount of food they could collect in 30 turns averaged over 1000 random placements. This was repeated five times each.
+
+ Model | Score
+-------+-------
+Linear |  6.45, 6.923, 6.739, 7.158, 6.906
+    AI | 39.341, 38.701, 39.334, 40.7, 39.474
+
+It is clear that the linear model for the monkey brain is insufficiently complex for modelling the artificial intelligence.
+
+PROGRESSION TO A FULL CNN
+I added a convolutional layer to the progressional brain. The net architecture is
+(4x11x11) & 1
+(4x11x11) & 1 Conv2d ReLU
+485 Flatten
+9 Relu
+8 Relu
+5
+
+It behaves quite well after training on AIDATA\AIData0.txt for 30 epochs in 3 batches each with randomized order between each epoch. This is in contrast to more rudimentary nets. Clearly the convolutional layer makes the network more capable of learning the AI algorithm.
+
+Built gif of performance in ./img/OneConvLayer showing this. The qualities are clearly wrong, but at least the net is making the right decisions. After reinforcement elarning the qualities improve drastically. I will add in more layers.
+
+Added yet another fully-connected layer
+(4x11x11) & 1
+(4x11x11) Conv2d ReLU & 1
+484 Flatten & 1
+25 ReLU & 1
+26
+9 Relu
+8 Relu
+5
+
+This seems to be important. The supervised training is going a lot better with this layer
+added in! The loss is looking to stagnate around 0.45 whereas without this layer it was getting stuck around 0.7.
+
+The result of supervised training actually wasn't too good because the AI often gets stuck, the monkey often just got stuck itself.
+
+This bad result carried over to the curated training. I will try again with fewer epochs.
+
+Did 10 epochs and the loss stopped at 0.67 like the previous successful test. It still didn't work too well. The performance is much better. Adding in the rest of the convolutional layers.
+
+(4x11x11) & 1
+(4x11x11) Conv2d ReLU & 1
+(6x9x9) Conv2d ReLU & 1
+(4x7x7) Conv2d ReLU & 1
+(1x5x5) Conv2d ReLU & 1
+25 Flatten & 1
+26 Concat
+9 Relu
+8 Relu
+5
+
+Supervised training started with higher than expected loss (2.95). Each epoch is now taking less time, but the training rate has decreased and stagnated at a loss of 1.2. Monkey behavior seems fairly random. The monkey is not making intelligent choices. This is not a surprise because the amount of training data was not increased. We will add in another two data files.
+
+Using AIDATA\AIData0.txt, AIDATA\AIData1.txt, AIDATA\AIData2.txt for training. Supervised training seemed totally ineffective. The monkey just sits still. Not staying still anymore. I am going to increase the exploration rate to a constant 0.8 and go for another round of curated reinforcement learning.
+
+The net seems to be insensitive to training.
+
+BRAIN V3: SMALL SCALE UNLEARNABILITY
+One of the reasons that the net was unable to learn was that it had too many convolutional layers, leading to a receptive field that is far larger than what we want. The monkey needs to be able to see its near surroundings exactly. As such, a separate branch will be created for this.
+
+Convolutions are specified as (kernel size, padding, stride)
+
+vision                  & vision                        & food
+(4x11x11)               & (4x11x11)                     & 1
+(4x5x5) Crop            & (8x11x11) Conv2d(3,1,1) ReLU  & 1
+(4x5x5)                 & (4x8x8) Conv2d(4,0,1) ReLU    & 1
+(4x5x5)                 & (2x5x5) Conv2d(4,0,1) ReLU    & 1
+(4x5x5)                 & (2x5x5)                       & 1
+150 Flatten             & 1
+151 Concat
+25 Relu
+9 Relu
+8 Relu
+5
+
+
+Supervised training on AIData0.txt lr0.001 epoch10 batch3 OptimizerAdam
+Curated Reinforcement training level0 lr0.001 gamma0.8 food20 epsilon(0.9,0.1,1000) N4000 OptimizerAdagrad
+This architecture seems to be onto something. After supervised training, there was clearly some sort of benefit, although the qualities were inaccurate. When this was turned over to CR learning, the results initially seem phenomenal See V3.png. The monkey is also consistently moving towards bananas.
+
+Trying now this training method:
+Supervised training on AIData0.txt lr0.001 epoch10 batch3 max_discount0.05 OptimizerAdam
+CR training level0 lr0.001 gamma0.8 food20 epsilon(0.7,0.1,2000) N4000 OptimizerAdam
+CR training level1 lr0.001 gamma0.8 food20 epsilon(0.3,0.1,2000) N4000 OptimizerAdam
+CR training level0 lr0.001 gamma0.8 food20 epsilon(0.3,0.1,2000) N4000 OptimizerAdam
+CR training level1 lr0.001 gamma0.8 food20 epsilon(0.3,0.1,2000) N4000 OptimizerAdam
+CR training level2 lr0.001 gamma0.8 food20 epsilon(0.3,0.1,2000) N4000 OptimizerAdam
+CR training level1 lr0.001 gamma0.8 food20 epsilon(0.3,0.1,2000) N4000 OptimizerAdam
+
+Overall I am fairly happy with this. I will try now to set it free in the banana room.
+T6: DQN lr0.01 gamma0.8 epsilon(0.3,0.1,5000) N50000 OptAdam
+T7: CR level1 lr0.001 gamma0.8 food20 epsilon(0.15,0.15,1) N2000 OptAdam
+T8: DQN lr0.001 gamma0.8 epsilon(0.3,0.1,5000) N50000 OptAdam

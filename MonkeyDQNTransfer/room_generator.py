@@ -17,6 +17,8 @@ from __future__ import division
 import torch
 import torch.nn as nn
 
+import random
+
 import global_variables as gl
 import exceptions
 
@@ -163,3 +165,36 @@ def channel_to_ASCII(channel_map,indeces=False,index_offset=(0,0)):
         # The map has been populated now. Just add the newline characters,
         # concatenate it together, and return it.
         return '\n'.join(ASCII_rows)
+
+
+def rand_room(size, rates):
+    # Avoid infinite loop
+    try:
+        assert sum(rates) < 1
+    except AssertionError:
+        raise exceptions.MapSizeError('Rates must sum to less than one' +\
+            'to fit all blocks in map.')
+
+    # Build empty room
+    room = torch.zeros((len(gl.BLOCK_TYPES), size, size), \
+    dtype=torch.uint8)
+
+    # Build barriers on edges
+    for i in [0,-1]:
+        for j in range(size):
+            room[gl.INDEX_BARRIER, i, j] = 1
+            room[gl.INDEX_BARRIER, j, i] = 1
+
+    # Populate room
+    n_blocks = (size-1)**2
+    for block_index, block_type in enumerate(gl.BLOCK_TYPES):
+        rate = rates[block_index]
+        for n in range(round(n_blocks*rate)):
+            empty_spot = False
+            while not empty_spot:
+                i = random.randrange(size)
+                j = random.randrange(size)
+                empty_spot = all(room[:,i,j] == 0)
+            room[block_index,i,j] = 1
+
+    return room

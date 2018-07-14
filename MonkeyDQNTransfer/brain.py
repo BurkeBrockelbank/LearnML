@@ -542,11 +542,10 @@ class BrainProgression(BrainDQN):
 
         return Q
 
-class BrainFC(BrainDQN):
+class BrainV3(BrainDQN):
     """
-    This implements the second approach of the monkey brain. With the idea
-    that perhaps the vision size is too small for convolutional analysis,
-    this brain has only fully connected layers.
+    This implements the third approach of the monkey brain. This allows fine
+    features to be detected close to the monkey.
 
     This brain has no memory implementation.
     """
@@ -559,12 +558,18 @@ class BrainFC(BrainDQN):
         # Set the default policy
         self.pi = self.pi_epsilon_greedy
 
-        # Create convolutional layers of neural network.
+        # Fine branch
+
+        # Convolutional branch
+        self.c1 = nn.Conv2d(4,8,3,padding=1)
+        self.c2 = nn.Conv2d(8,4,4)
+        self.c3 = nn.Conv2d(4,2,4)
+
         # Create fully connected layers
-        self.f0 = nn.Linear(485,50)
-        self.f1 = nn.Linear(50,9)
-        self.f2 = nn.Linear(9,8)
-        self.f3 = nn.Linear(8,5)
+        self.f1 = nn.Linear(151,25)
+        self.f2 = nn.Linear(25,9)
+        self.f3 = nn.Linear(9,8)
+        self.f4 = nn.Linear(8,5)
 
     def forward(self, s):
         """
@@ -576,15 +581,28 @@ class BrainFC(BrainDQN):
         """
         # Unpack state
         food, vision = s
+        food_float = torch.FloatTensor([food])
+        vision_float = vision.float()[None]
 
-        # Put the state in a vector
-        x = torch.cat((vision.float.view(-1), torch.FloatTensor([food])))
+        # Fine branch
+        h_fine = vision_float[:,:,3:-3,3:-3]
 
-        #
-        h = F.relu(self.f0(x))
+        # Convolutional layers
+        h_conv = F.relu(self.c1(vision_float))
+        h_conv = F.relu(self.c2(h_conv))
+        h_conv = F.relu(self.c3(h_conv))
+
+        # Combine branches
+        h = torch.cat((h_fine[0], h_conv[0]), dim=0)
+
+        # Fully connected layers
+        # First flatten
+        h = h.view(-1)
+        # Add in food
+        h = torch.cat((torch.FloatTensor([food]),h))
         h = F.relu(self.f1(h))
         h = F.relu(self.f2(h))
-        Q = self.f3(h)
+        h = F.relu(self.f3(h))
+        Q = self.f4(h)
 
         return Q
-
