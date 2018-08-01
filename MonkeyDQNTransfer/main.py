@@ -45,6 +45,7 @@ if __name__ == "__main__":
         return (epsilon_start - epsilon_end)*\
             math.exp(-(n+1)/n_epsilon) + epsilon_end
     max_discount = 0.05
+    CR_level = 3
 
     # Create the map
     room_start = rg.rand_room(500, [0,0,0.06,0])
@@ -71,13 +72,16 @@ if __name__ == "__main__":
     # Load brain from permanent memory
     monkey_brain.load_state_dict(torch.load('brainsave_banana_room.txt'))
 
-    # Reinforcment learning on a room that is 500x500 and 3% bananas
-    loss_report = train.dqn_training(g, 50000, gamma, lr_reinforcement, \
-    epsilon = epsilon, watch = False)
+    train.curated_bananas_dqn(g, CR_level, 20, gamma, 0, 20, watch = True)
+    # train.dqn_training(g, 60, gamma, 0, watch = True)
 
-    # # Curated learning 
-    # loss_report = train.curated_bananas_dqn(g, 1, 2000, gamma, lr_reinforcement, 20,\
-    # epsilon = lambda x: 0.15)
+    # Curated learning 
+    loss_report = train.curated_bananas_dqn(g, CR_level, 2000, gamma, lr_reinforcement, 20,\
+    epsilon = lambda x: 0.15)
+
+    # # Reinforcment learning on a room that is 500x500 and 3% bananas
+    # loss_report = train.dqn_training(g, 50000, gamma, lr_reinforcement, \
+    # epsilon = epsilon, watch = False)
 
     plt.title('Learning ' + str(lr_reinforcement), )
     plt.xlabel('Turn')
@@ -86,15 +90,15 @@ if __name__ == "__main__":
     plt.plot(*zip(*loss_report))
     plt.show()
 
-    train.dqn_training(g, 60, gamma, 0, watch = True)
-    # train.curated_bananas_dqn(g, 1, 20, gamma, 0, 20, watch = True)
+    train.curated_bananas_dqn(g, CR_level, 20, gamma, 0, 20, watch = True)
+    # train.dqn_training(g, 60, gamma, 0, watch = True)
 
     input('Exit now to avoid saving')
     for i in range(100):
         input('Are you sure?')
 
     # Save the brain
-    torch.save(monkey_brain.state_dict(), 'brainsave_banana_room_curated.txt')
+    torch.save(monkey_brain.state_dict(), 'brainsave_T9')
 
     # plt.title('Supervised Learning on RAND_ROOM lr' + str(lr_supervised))
     # plt.xlabel('Turn')

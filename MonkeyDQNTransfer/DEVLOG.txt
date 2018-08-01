@@ -91,7 +91,10 @@ CR training level1 lr0.001 gamma0.8 food20 epsilon(0.3,0.1,2000) N4000 Optimizer
 CR training level2 lr0.001 gamma0.8 food20 epsilon(0.3,0.1,2000) N4000 OptimizerAdam
 CR training level1 lr0.001 gamma0.8 food20 epsilon(0.3,0.1,2000) N4000 OptimizerAdam
 
-Overall I am fairly happy with this. I will try now to set it free in the banana room.
+Overall I am fairly happy with this. I will try now to set it free in the banana room (6% bananas)
 T6: DQN lr0.01 gamma0.8 epsilon(0.3,0.1,5000) N50000 OptAdam
 T7: CR level1 lr0.001 gamma0.8 food20 epsilon(0.15,0.15,1) N2000 OptAdam
 T8: DQN lr0.001 gamma0.8 epsilon(0.3,0.1,5000) N50000 OptAdam
+
+I notice that the monkey moves preferentially to the left. While this is garnering it a decent amount of food, this is not how a human would play, and it is not the most efficient method for moving around. My solution is to do curated training a further distance out so it will learn that it is beneficial to go up and down and not ignore up and down in favour of going left.
+T9: CR level3 lr0.001 gamma0.8 food20 epsilon(0.15,0.15,1) N2000 OptAdam
