@@ -198,7 +198,7 @@ def supervised_training(epochs, batches, paths, brain, gamma, \
     # Define the loss function
     criterion = nn.SmoothL1Loss(size_average=False)
     # Create an optimizer
-    optimizer = torch.optim.Adam(brain.parameters(), lr=lr)
+    optimizer = torch.optim.Adagrad(brain.parameters(), lr=lr)
     loss_record = []
     # Iterate through epochs
     for epoch in range(epochs):
@@ -286,8 +286,8 @@ def load_records(path):
         return sum(records, [])
 
 
-def curated_bananas_dqn(g, level, N, gamma, lr, food,\
-    epsilon = lambda x: 0, watch = False):
+def curated_bananas_dqn(g, level, N, gamma, lr, food, random_start = False, \
+    epsilon = lambda x: 0, watch = False, block_index = 2):
     """
     This function trains the monkey with curated examples. For example,
     at level 1, we will have a banana one block away from the monkey:
@@ -304,9 +304,13 @@ def curated_bananas_dqn(g, level, N, gamma, lr, food,\
         lr: learning rate.
         food: The maximum food level. All food levels will be used randomly
             up to this level.
+        random_start: This will make the first move of the monkey be
+            completely random. Good for progressing on earlier curations.
         epsilon_data: Default lambda function returning zero. A function that
             calculates epsilon.
         watch: Default False. True if you want to watch the monkey train.
+        block_index: The index of the type of block to be placed. Defaule 2 for
+            banana.
     """
     # Set reporting up
     loud = []
@@ -316,7 +320,7 @@ def curated_bananas_dqn(g, level, N, gamma, lr, food,\
     # Set monkey to train
     g.monkeys[0].brain.train()
 
-    # Deal with level zero special case (only adjacent)
+    # Deal with level zero special case (only adjacent).
     level_zero = False
     if level == 0:
         level = 1
@@ -352,14 +356,14 @@ def curated_bananas_dqn(g, level, N, gamma, lr, food,\
     if g.monkeys[0].brain.pi == g.monkeys[0].brain.pi_epsilon_greedy:
         epsilon_needed = True
 
-    # Initialize banana position variables
-    banana_i = 0
-    banana_j = 0
+    # Initialize block position variables
+    block_i = 0
+    block_j = 0
 
     # Initialize loss record
     loss_record = []
 
-    # Calculate the number of turns the monkey has to get banana.
+    # Calculate the number of turns the monkey has to explore.
     turn_allowance = math.ceil((2*level**2 + 3*level + 1)/(2*level + 2))
     if level_zero:
         turn_allowance = 1
@@ -378,22 +382,22 @@ def curated_bananas_dqn(g, level, N, gamma, lr, food,\
         # Assign food
         g.monkeys[0].food = random.randrange(2*level,food)
 
-        # Remove old bananas
-        g.channel_map[gl.INDEX_BANANA] = torch.zeros((map_size, map_size), \
+        # Remove old blocks
+        g.channel_map[block_index] = torch.zeros((map_size, map_size), \
             dtype = torch.uint8)
 
-        # Assign banana position
+        # Assign block position
         position_chosen = False
         while not position_chosen:
             if not level_zero:
-                banana_i = random.randrange(radius-level, radius+level+1)
-                banana_j = random.randrange(radius-level, radius+level+1)
-                if (banana_i, banana_j) != (radius, radius):
+                block_i = random.randrange(radius-level, radius+level+1)
+                block_j = random.randrange(radius-level, radius+level+1)
+                if (block_i, block_j) != (radius, radius):
                     position_chosen = True
             else:
-                banana_i, banana_j = random.choice(zero_positions)
+                block_i, block_j = random.choice(zero_positions)
                 position_chosen = True
-        g.channel_map[gl.INDEX_BANANA, banana_i, banana_j] = 1
+        g.channel_map[block_index, block_i, block_j] = 1
 
         # Replace monkey
         g.teleport_monkey(g.monkeys[0].pos, (radius,radius))
@@ -418,7 +422,13 @@ def curated_bananas_dqn(g, level, N, gamma, lr, food,\
         food_new = g.monkeys[0].food
         state_new = (food_new, sight_new)
         # b) Calculate policy
-        if epsilon_needed:
+        # Do a random start if necessary
+        if random_start:
+            Q_new, a_new = g.monkeys[0].brain.pi_random(state_new)
+            p_new = 0
+            if epsilon_needed:
+                epsilon_n = epsilon(n)
+        elif epsilon_needed:
             epsilon_n = epsilon(n)
             Q_new, a_new, p_new = g.monkeys[0].brain.pi(state_new, epsilon_n)
         else:

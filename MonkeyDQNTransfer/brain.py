@@ -133,9 +133,9 @@ class BrainDQN(nn.Module):
         # Roll a random number
         if random.uniform(0, 1) < epsilon:
             # Make a random movement
-            a = random.randrange(0,len(gl.WASD))
+            Q, a = self.pi_random(s)
             # Calculate the qualities
-            return self.Q(s,a), a, epsilon
+            return Q, a, epsilon
         else:
             # Get the probability of this occuring
             p = 1-epsilon
@@ -172,6 +172,22 @@ class BrainDQN(nn.Module):
         a = bisect.bisect(CDF, roll)
         # Return the quality and action.
         return Qs[a], a, Q_softmax[a]
+
+    def pi_random(self, s):
+        """
+        Enacts the policy of qualities corresponding to random decision.
+
+        Args:
+            s: The gamesate.
+
+        Returns:
+            0: The quality of the action.
+            1: The action to be taken.
+        """
+        # Make a random movement
+        a = random.randrange(0,len(gl.WASD))
+        # Calculate the qualities
+        return self.Q(s,a), a
 
 
 class BrainLinearAI(BrainDQN):
@@ -604,5 +620,4 @@ class BrainV3(BrainDQN):
         h = F.relu(self.f2(h))
         h = F.relu(self.f3(h))
         Q = self.f4(h)
-
         return Q

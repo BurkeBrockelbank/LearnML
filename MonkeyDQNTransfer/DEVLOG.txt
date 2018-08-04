@@ -98,3 +98,108 @@ T8: DQN lr0.001 gamma0.8 epsilon(0.3,0.1,5000) N50000 OptAdam
 
 I notice that the monkey moves preferentially to the left. While this is garnering it a decent amount of food, this is not how a human would play, and it is not the most efficient method for moving around. My solution is to do curated training a further distance out so it will learn that it is beneficial to go up and down and not ignore up and down in favour of going left.
 T9: CR level3 lr0.001 gamma0.8 food20 epsilon(0.15,0.15,1) N2000 OptAdam
+
+Testing monkeys in random room (6% bananas)
+ Model | Score
+-------+-------
+T9Model|  9.816, 9.828, 9.594, 9.990, 9.680
+    AI | 39.407, 38.685, 39.991, 39.789, 39.555
+
+Clearly the model is still insufficiently replicating the AI, however we are seeing an improvement over the linear AI. One of the issues we have is that the monkey is still missing things that are more than a few blocks away in the examples up to now. I think that this is primarily because outside of two blocks away, the monkey doesn't see exactly what is going on around it. This cropping occurs in the brain architecture. I think it is time to allow it to train in the banana room with some more complexity. I will go with a room that includes lava and barriers now. (2% barriers, 6% bananas, 1% lava). However, first I want to check it with curation of level 2 again briefly.
+
+
+I had a great idea! I made it so that the initial move in curated training is always random. This way it explores in the first move (where it knows nothing) and then rely on its past curation training. I am starting a new training branch, called branch 1. Filenames for brain saves will be of the form B1Tnn.brainsave.
+
+B1T0: CR lvl0 lr0.001 gamma0.8 food20 eps(0.3,0.1,2000) N10000 OptAdam
+The monkey is not too accurate. I am not really sure why.
+B1T1: CR lvl1 lr0.0005 gamma0.8 food20 eps(0.3,0.1,2000) N10000 OptAdam
+I did some experimenting and it is a learning rate problem! The level 1 training does so much better with a smaller learning rate.
+
+B1T0: CR lvl0 lr0.001 gamma0.8 food20 eps(0.3,0.1,2000) N10000 OptAdam rand_start
+B1T1: CR lvl0 lr0.001 gamma0.8 food20 eps(0.3,0.1,2000) N3000 OptAdam
+B1T2: CR lvl1 lr0.001 gamma0.8 food20 eps(0.3,0.1,2000) N5000 OptAdam
+
+It's not doing too well honestly. I am going to let it do supervised training again. Keeping gamma at 0.8.
+
+B2T0: Supervised AIData0.txt AIData1.txt AIData2.txt lr0.01 epoch10 batch3 max_discount0.05 OptAdagrad
+
+From watching the monkey train, it is clear that the qualities are highly overestimated. This is to be expected because of the sheer number of bananas the AI monkey collects. The monkey seems to make the correct decision for movement some of the time.
+
+B2T1: CR lvl0 lr0.001 gamma0.8 food20 eps(0.3,0.1,2000) N5000 OptAdam
+
+The monkey is making all the right decisions at the 0th level of curation. Clearly pretraining with the AI is extremely important.
+
+B2T2: CR lvl1 lr0.001 gamma0.8 food20 eps(0.3,0.1,2000) N5000 OptAdam
+
+I noticed that before training the monkey was actually making decent decisions. I suppose that this must be due to B2T0 training. After training I don't see any marked improvement honestly. I notice that oftentimes the monkey doesn't know what to do when it gets adjacent to a banana as well. I will just train more and overwrite this last training.
+
+B2T2: CR lvl1 lr0.001 gamma0.8 food20 eps(0.3,0.1,2000) N15000 OptAdam
+
+It really didn't help.
+
+B2T2: CR lvl1 lr0.001 gamma0.8 food20 eps(0.3,0.1,2000) N5000 OptAdam
+
+Performance is quite good.
+
+B2T3: CR lvl0 lr0.001 gamma0.8 food20 eps(0.3,0.1,2000) N5000 OptAdam
+
+The model is a little too optimistic still about the rewards. I am going to let it run for a while in the random room to change that.
+
+B2T4: RR lr0.001 gamma0.8 food20 eps(0.5,0.1,5000) N15000 OptAdam
+
+Already before training I am testing the monkey on 2nd level curationn and it doesn't look bad. After training, the monkey retains its good curated training behavior
+
+Monkey test
+
+Testing monkeys in random room (2% barriers, 6% bananas, 1% lava)
+ Model | Score
+-------+-------
+  B2T4 | 20.487, 21.365, 21.366, 21.068, 20.536
+    AI | 31.863, 29.772, 29.655, 30.651, 30.145
+
+This is indeed exciting! As we would expect, the AI does worse when we begin adding barriers (which must be traversed around) and lava. The B2T4 model also, on average, ends its turn with more food than it initally had! this means that, on average, it is self sustaining. Due to fluctuations of course it will still die most likely, but we are getting close to a fully self-sustaining monkey.
+
+With this in mind I will do some level 0 training on lava. Followed by some level 2 training on bananas.
+
+B2T5: CR lvl0 lr0.001 gamma0.8 food20 eps(0.3,0.1,5000) N5000 OptAdam LAVA
+
+Now let's do some level 2 training with bananas.
+
+B2T6: CR lvl2 lr0.001 gamma0.8 food20 eps(0.3,0.1,2000) N10000 OptAdam
+
+The level 2 training didn't go well. The monkey lost its ability to make smart decision. We will revert back to B2T4.
+
+B2T5: RR lr0.001 gamma0.8 food20 eps(0.5,0.05,5000) N50000 OptAdam
+
+Let's test it again.
+
+ Model | Score
+-------+-------
+  B2T4 | 31.411, 32.226, 31.097, 31.857, 31.087
+    AI | 31.863, 29.772, 29.655, 30.651, 30.145
+
+The monkey is about the same as the AI even a little better!!! I will make a gif of it playing (B2T5.gif).
+
+What I would like to do at some point to make it play more like a human is to add some recurrency. However, right now I will just allow it to play for a while to get better. I am also going to reduce the banana frequency to 5%.
+
+B2T6: RR lr0.001 gamma0.8 food20 eps(0.2,0.05,5000) N50000 OptAdam
+
+ Model | Score
+-------+-------
+  B2T4 | 19.117, 19.650, 19.352, 19.283, 19.721
+    AI | 26.500, 25.778, 24.676, 25.086, 23.639
+
+The AI is outperforming again with sparser bananas. I will increase the barrier frequency to 3% and see what happens (#3%, m0%, b5%, d1).
+
+ Model | Score
+-------+-------
+  B2T4 | 18.901, 17.631, 19.069, 18.12, 17.987
+
+B2T7: RR lr0.001 gamma0.8 food20 eps(0.1,0.05,5000) N50000 OptAdam
+
+ Model | Score
+-------+-------
+  B2T4 | 26.505, 26.434, 35.357, 24.948, 24.583
+    AI | 23.989, 21.699, 22.245, 20.497, 19.907
+
+Watching this monkey go, I wonder if that the entire convolutional branch is pointless. The monkey doesn't seem to be using it at all. Anyway, the monkey is doing better than the AI now that we have added more barriers!
