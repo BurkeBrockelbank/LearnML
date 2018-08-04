@@ -202,4 +202,4 @@ B2T7: RR lr0.001 gamma0.8 food20 eps(0.1,0.05,5000) N50000 OptAdam
   B2T4 | 26.505, 26.434, 35.357, 24.948, 24.583
     AI | 23.989, 21.699, 22.245, 20.497, 19.907
 
-Watching this monkey go, I wonder if that the entire convolutional branch is pointless. The monkey doesn't seem to be using it at all. Anyway, the monkey is doing better than the AI now that we have added more barriers!
+Watching this monkey go, I wonder if that the entire convolutional branch is pointless. The monkey doesn't seem to be using it at all. Anyway, the monkey is doing better than the AI now that we have added more barriers! That's a good place to stop today.
