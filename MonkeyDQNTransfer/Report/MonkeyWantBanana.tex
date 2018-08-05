@@ -120,7 +120,7 @@ The loss is then calculated as a function of $\delta$.
 In order to train the neural net effectively, some degree of exploration is used. In the case of this report, $\pi$ is replaced with $\pi_\epsilon$ where $\epsilon\in[0,1]$. $\pi_\epsilon$ has a probability $\epsilon$ of returning a random action and a $(1-\epsilon)$ probability of returning $\pi$. 
 
 \subsection{\label{sec:Monkey}Monkey Want Banana}
-This report considers the performance of 
+This report considers the performance of a neural net playing a simple game where the player controls a monkey in a square grid trying to collect bananas while traversing walls and avoiding lava.
 
 \subsection{\label{sec:Challenges}Challenges with Q Learning}
 One of the main issues with Q learning is evident in \eqref{eq:delta}. Calculating the loss for performing the action $a$ from the state $s$, it depends on the next state. Hypothetically, $\delta$ could be very small or even zero even if $Q$ does not accurately model $Q^*$ as long as $Q(s,a)$ and $\gamma Q(s', \pi(s'))$ differ from their respective $Q^*$ predictions by the same amount. If $Q$ is inaccurate, like at the beginning of its training, it will converge slowly.
