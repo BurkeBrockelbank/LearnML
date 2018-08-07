@@ -46,10 +46,13 @@ nofootinbib,
 \usepackage{amssymb}
 \usepackage{amsmath}
 \usepackage{graphicx}
+\usepackage{courier}
 
 
 \DeclareMathOperator*{\argmax}{arg\,max}
 \DeclareMathOperator*{\argmin}{arg\,min}
+
+\newcommand{\abs}[1]{\left\|{#1}\right\|}
 
 %\usepackage{hyperref}% add hypertext capabilities
 %\usepackage[mathlines]{lineno}% Enable numbering of text and display math
@@ -120,17 +123,150 @@ The loss is then calculated as a function of $\delta$.
 In order to train the neural net effectively, some degree of exploration is used. In the case of this report, $\pi$ is replaced with $\pi_\epsilon$ where $\epsilon\in[0,1]$. $\pi_\epsilon$ has a probability $\epsilon$ of returning a random action and a $(1-\epsilon)$ probability of returning $\pi$. 
 
 \subsection{\label{sec:Monkey}Monkey Want Banana}
-This report considers the performance of a neural net playing a simple game where the player controls a monkey in a square grid trying to collect bananas while traversing walls and avoiding lava.
+This report considers the performance of a neural net playing a simple game where the player controls a monkey in a square grid trying to collect bananas while traversing walls and avoiding lava. Every action the monkey takes expends some of its food so it must constantly find new bananas to eat. The game is written with a text-based ASCII art interface. One screen of the game is shown in Figure \ref{fig:GameDemo}.
+
+\begin{figure}
+  \includegraphics[width=0.8\columnwidth]{GameDemo}
+  \caption{A demonstration of the monkey game showing all the block types and the movement interface. Block types are barriers \texttt{\#}, monkeys \texttt{m}, bananas \texttt{b}, and lava \texttt{d} which is symbolized by a \texttt{d} for danger. The line beginning with \texttt{>>>} is the movement interface. In this case, the player has chosen to move downwards. These controls are defined with the common \texttt{wasd} movements. Additionally the player can choose not to move by entering a space key which we will symbolize as \texttt{\_}. The numbers on the perimeter of the map show the position of objects on the map by splitting it into a number modulo 10 and the ones digit. In this image, the monkey is at position (239,251).} \label{fig:GameDemo}
+\end{figure}
+
+A natural choice of reward function is the food level. Specifically, the immediate reward of some action $a$ taking the game state from $s$ to $s'$ is the food level in $s'$ minus the food level in $s$. Doing an action takes one food away from the monkey, so if no banana is eaten, the immediate reward is $-1$. Eating a banana give the monkey 5 food, so if the monkey moves to collect a banana, it gets an immediate reward of $4$. The monkey also may starve to death, or move into lava, in which case it will get a reward of $-50$. The discount factor was set to $0.8$ since this fairly accurately describes the lack of knowlege the monkey has outside of its $11x11$ vision range.
+
+The loss function was decided as the smooth L1 loss,
+
+\begin{equation}
+  \text{loss}(\delta) = \left\{ \begin{array}{cc} \frac{1}{2} \delta^2 & \abs{\delta} \leq 1 \\ \abs{\delta} - \frac{1}{2} & \abs{\delta} > 1\end{array}. \right. \label{eq:Loss}
+\end{equation}
 
 \subsection{\label{sec:Challenges}Challenges with Q Learning}
 One of the main issues with Q learning is evident in \eqref{eq:delta}. Calculating the loss for performing the action $a$ from the state $s$, it depends on the next state. Hypothetically, $\delta$ could be very small or even zero even if $Q$ does not accurately model $Q^*$ as long as $Q(s,a)$ and $\gamma Q(s', \pi(s'))$ differ from their respective $Q^*$ predictions by the same amount. If $Q$ is inaccurate, like at the beginning of its training, it will converge slowly.
 
+For an example of this challenge in the monkey game, consider the series of states in Figure \ref{fig:States}. First we will derive $Q^* $ from the states in Figure \ref{fig:States} and then show how with some issues in $Q$ can cause slow learning. We can work backwards from the final state to derive $Q^*$. Assuming that after $s'''$ the monkey cannot find any more bananas and does not die, it will just eat one food per turn and thus have each immediate reward be $-1$. The quality can be determined via \eqref{eq:Bellman1} as,
+
+\begin{equation}
+  Q^*(s''',a''') = (-1) + \gamma (-1) + \gamma^2 (-1) + \hdots = -5.
+\end{equation}
+
+From this we calculate all previous qualities via \eqref{eq:Bellman2}.
+
+\begin{align}
+  Q^*(s'',a'') &= (-1) + \gamma Q^*(s''',a''') = -5,\\
+  Q^*(s',a') &= (4) + \gamma Q^*(s'',a'') = 0,\\
+  Q^*(s,a) &= (-1) + \gamma Q^*(s',a') = -1.
+\end{align}
+
+Suppose that $Q$ misevaluates $Q(s'',a'')$ as 0 and $Q(s',a')$ as $4$. Then \eqref{eq:delta} becomes,
+\begin{align*}
+  Q(s',a') &= r_{s,a} + \gamma Q(s'', \pi(s'')) + \delta \\
+  4 &= 4 + \gamma 0 + \delta \\
+  \delta &= 0.
+\end{align*}
+
+This gives a loss of zero so no learning will be done from the evaluation from state $s'$ until $Q(s'',a'')$ changes. This same effect occurs during training with the effect of making delta either too large or too small. This arises from the fact that, at the beginning of training, $Q$ does not come close to satisfying the Bellman equation. However, if $Q$ is already close to $Q^*$ then it will be close to the Bellman equation and the effect will not be as pronounced.
+
+%\begin{figure}
+%  \begin{tabular}{c|c|c}
+%    &&\texttt{b}\\ \hline
+%    &\texttt{\hphantom{m}}&\\ \hline
+%    \texttt{m}&&
+%  \end{tabular}
+%  $\xrightarrow[s \quad s']{a}$
+%  \begin{tabular}{c|c|c}
+%    &&\texttt{b}\\ \hline
+%    \texttt{\hphantom{m}}&&\\ \hline
+%    &\texttt{m}&
+%  \end{tabular}
+%  $\xrightarrow[s' \quad s'']{a}$
+%  \begin{tabular}{c|c|c}
+%    &&\texttt{b}\\ \hline
+%    &\texttt{m}&\\ \hline
+%    \texttt{\hphantom{m}}&&
+%  \end{tabular}
+%  $\xrightarrow[s^{(3)} \quad s^{(4)}]{a^{(3)}}$\\
+%  \begin{tabular}{c|c|c}
+%    \texttt{\hphantom{m}}&&\texttt{b}\\ \hline
+%    &&\texttt{m}\\ \hline
+%    &\texttt{\hphantom{m}}&
+%  \end{tabular}
+%  $\xrightarrow[s^{(4)} \quad s^{(5)}]{a^{(4)}}$
+%  \begin{tabular}{c|c|c}
+%    \texttt{\hphantom{m}}&&\texttt{m}\\ \hline
+%    && \\ \hline
+%    &\texttt{\hphantom{m}}&
+%  \end{tabular}
+%  $\xrightarrow[s^{(5)} \quad s^{(6)}]{a^{(5)}}$
+%  $\hdots$
+%  \caption{A series of hypothetical states in the monkey game. The actions taken in this series represent one of the possible sets of actions that would be given by consulting $\pi^*$ at every state.} \label{fig:States}
+%\end{figure}
+
+
+\begin{figure}
+  \begin{tabular}{|c|c|}
+    \hline
+    &\texttt{b}\\ \hline
+    \texttt{m}&\\\hline
+  \end{tabular}
+  $\xrightarrow[s \quad s']{a}$
+  \begin{tabular}{|c|c|}
+    \hline
+    &\texttt{b}\\ \hline
+    \texttt{\hphantom{m}}&\texttt{m}\\\hline
+  \end{tabular}
+  $\xrightarrow[s' \quad s'']{a}$
+  \begin{tabular}{|c|c|}
+    \hline
+    &\texttt{m}\\ \hline
+    \texttt{\hphantom{m}}&\\\hline
+  \end{tabular}
+  $\xrightarrow[s'' \quad s''']{a''}$
+  $\hdots$
+  \caption{A series of hypothetical states in the monkey game. The actions taken in this series represent one of the possible sets of actions that would be given by consulting $\pi^*$ at every state.} \label{fig:States}
+\end{figure}
+
 
 \section{\label{sec:Methods}Methods}
 
+The training of the neural net came in three major forms. In the first form, the neural net was trained on labelled data generated by the AI. In the second form, the neural net was trained in some curated situations to fix some deficiencies likely caused by issues in the labelled data. This form will be called curated training. Different levels of curated training are shown in Figure \ref{fig:Curation}. In the third form, the neural net was allowed to explore and learn on its own in the same environment that the AI ran in. This form will be called random reinforcement training
+
+\begin{figure}
+  \begin{tabular}{|c|c|c|}
+    \hline
+    &\texttt{b}&\\ \hline
+    \texttt{b}&\texttt{m}&\texttt{b}\\ \hline
+    &\texttt{b}& \\ \hline
+  \end{tabular}\quad
+  \begin{tabular}{|c|c|c|}
+    \hline
+    \texttt{b}&\texttt{b}&\texttt{b}\\ \hline
+    \texttt{b}&\texttt{m}&\texttt{b}\\ \hline
+    \texttt{b}&\texttt{b}&\texttt{b} \\ \hline
+  \end{tabular}\quad
+  \begin{tabular}{|c|c|c|c|c|}
+    \hline
+    \texttt{b}&\texttt{b}&\texttt{b}&\texttt{b}&\texttt{b}\\ \hline
+    \texttt{b}&&&&\texttt{b}\\ \hline
+    \texttt{b}&&\texttt{m}&&\texttt{b}\\ \hline
+    \texttt{b}&&&&\texttt{b}\\ \hline
+    \texttt{b}&\texttt{b}&\texttt{b}&\texttt{b}&\texttt{b}\\ \hline
+  \end{tabular} \\
+\caption{Levels 0, 1, and 2 or curated training are illustrated. Places where bananas are allowed to be placed are marked with a \texttt{b} while the monkey's position is marked with an \texttt{m}. Only one banana is placed in any instance of curaten training.} \label{fig:Curation}
+\end{figure}
+
+In the first part of training labelled data had to be created for the AI to play in. Data was created in game boards which had monkeys, bananas, and lava but no barriers. It was determined that adding in barriers caused the AI to get stuck far too often so data was generated without them. Even without barriers, the AI often got stuck in infinite loops which added noise to the dataset. Another source of noise is that the monkey's position was periodically reset in order to avoid stalling permanently when stuck. These are likely the reason that the model didn't converge well on the AI and was incapable of replicating it. Despite this, the first phase of training proved invaluable to the overall training. When we attempted to skip this step, the model could not be trained to effectively retrieve bananas in a reasonable amount of time.
+
+The second part of training was meant to address some obvious shortcomings that came from training on such a poor data set. This part included both curated training and random reinforcement. Initially, the model underwent curated training of level 0, then level 1, then level 0 again. This part of the training may not have been necessary as the monkey was correctly moving towards the The model trained with the Q learning algorithm on successive stages of putting a banana close to the monkey at increasing distance at each stage. These stages ran until the monkey could consistently approach bananas up to a distance of two blocks away.
+
+
+
 \section{\label{sec:Results}Results}
 
+The model was then tested against the AI in a room with a random distribution of 2\% barriers, 1\% lava, and 5\% bananas
+
+emphasize how the AI was so simple and really insufficient for the task at hand but was necessary in creating a much more effective neural net
+
 \section{\label{sec:Discussion}Discussion}
+
+talk about how the convolutional branch of the neural net was not sufficient for dealing with far-away objects alone and the neural net would likely benefit breatly by expanding the non-convolutional branch out to the full 11x11 grid.
 
 \bibliographystyle{apsrev4-1}
 \bibliography{bib}

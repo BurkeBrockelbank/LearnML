@@ -189,7 +189,7 @@ B2T6: RR lr0.001 gamma0.8 food20 eps(0.2,0.05,5000) N50000 OptAdam
   B2T4 | 19.117, 19.650, 19.352, 19.283, 19.721
     AI | 26.500, 25.778, 24.676, 25.086, 23.639
 
-The AI is outperforming again with sparser bananas. I will increase the barrier frequency to 3% and see what happens (#3%, m0%, b5%, d1).
+The AI is outperforming again with sparser bananas. I will increase the barrier frequency to 3% and see what happens (#3%, m0%, b5%, d1%).
 
  Model | Score
 -------+-------
@@ -202,4 +202,91 @@ B2T7: RR lr0.001 gamma0.8 food20 eps(0.1,0.05,5000) N50000 OptAdam
   B2T4 | 26.505, 26.434, 35.357, 24.948, 24.583
     AI | 23.989, 21.699, 22.245, 20.497, 19.907
 
-Watching this monkey go, I wonder if that the entire convolutional branch is pointless. The monkey doesn't seem to be using it at all. Anyway, the monkey is doing better than the AI now that we have added more barriers! That's a good place to stop today.
+Watching this monkey go, I wonder if that the entire convolutional branch is pointless. The monkey doesn't seem to be using it at all. In fact, it completely ignores bananas that are far away. Anyway, the monkey is doing better than the AI now that we have added more barriers! That's a good place to stop today.
+
+B2T8: CR lvl3 lr0.001 gamma0.8 food20 eps(0.3,0.1,2000) N10000 OptAdam
+
+My goal is to have a more streamlined approach based on the previous approach.
+
+B3T0: Supervised AIData0.txt-AIData4.txt lr0.01 epoch10 batch6 max_discount0.05 OptAdagrad
+
+ Model | Score
+-------+-------
+  B3T0 | 4.171, 3.859, 4.156, 4.146, 3.966
+
+B3T1: CR lvl0 lr0.001 gamma0.8 food20 eps(0.4,0.2,2000) N10000 OptAdam
+B3T2: CR lvl1 lr0.001 gamma0.8 food20 eps(0.3,0.1,2000) N5000 OptAdam
+B3T3: CR lvl2 lr0.001 gamma0.8 food20 eps(0.3,0.1,2000) N5000 OptAdam
+B3T4: CR lvl0 lr0.001 gamma0.8 food20 eps(0.3,0.1,2000) N5000 OptAdam blocktype 'd'
+
+Monkey test (#3%, m0%, b5%, d1%)
+
+B3T5: RR lr0.001 gamma0.8 food20 eps(0.5,0.05,25000) N150000 OptAdam (#3%, m0%, b5%, d1)
+
+Monkey test (#3%, m0%, b5%, d1%)
+
+Nothing is working again. I really think it is because of the dirtiness of the data. I tried again with B2T0 and it works. I will try to replicate the results of B2T0.
+
+B4T0: Supervised AIData0.txt AIData1.txt AIData2.txt lr0.01 epoch10 batch3 max_discount0.05 OptAdagrad
+B4T1: CR lvl0 lr0.001 gamma0.8 food20 eps(0.3,0.1,2000) N5000 OptAdam
+B4T2: CR lvl1 lr0.001 gamma0.8 food20 eps(0.3,0.1,2000) N5000 OptAdam
+
+I haven't quite finished the above. Right now I am cleaning the data files of infinite loops. It seems that the vast majority of infinite loops are of length two (i.e. two states that feed into one another). Almost none are of length 1 and less than a percent seem to be of length 4. Length 3 is of course impossible.
+
+Now I will repeat training B3 on the cleaned data to see what happened.
+
+B5T0: Supervised AIData0CLEAN.txt lr0.01 epoch8 batch6 max_discount0.05 OptAdagrad
+
+It doesn't work. Trying a new training method, overwriting B5. In the new method we just do supervised training with the cross entropy loss between the model's Q values and the action taken by the AI. It ended up working VERY well in getting the monkey to move in the right direction, but, as would be expected, the quality values don't actually mean anything. This will be recalibrated in some curated training.
+
+B5T1: CR lvl0 lr0.001 gamma0.8 food20 eps(0.3,0.1,2000) N50000 OptAdam
+
+It's looking good! However I do notice that it easily gets stuck in non-curated situations. This will have to be fixed in RR training.
+
+B5T2: CR lvl1 lr0.001 gamma0.8 food20 eps(0.3,0.1,2000) N50000 OptAdam
+
+That ruined it!
+
+B5T2: CR lvl1 lr0.001 gamma0.8 food20 eps(0.3,0.1,2000) N5000 OptAdam
+
+The monkey is performing slightly worse, but the qualities are more correct. I think this is good enough.
+
+B5T3: CR lvl0 lr0.001 gamma0.8 food20 eps(0.3,0.1,2000) N2000 OptAdam block'd'
+
+B5T4: RR lr0.001 gamma0.8 food20 eps(0.5,0.05,10000) N50000 OptAdam (#3%, m0%, b5%, d1)
+
+Before training the monkey just always ends up standing still. Afterwards it moves down and finds nothing.
+
+B5T0: Supervised AIData0CLEAN.txt-AIData5CLEAN.txt lr0.01 epoch8 batch6 max_discount0.05 OptAdagrad
+
+Monkey test (#3%, m0%, b5%, d1%)
+ Model | Score
+-------+-------
+  B5T0 | 30.307, 29.549, 30.068, 27.797, 29.180
+    AI | 22.904, 22.500, 21.671, 19.885, 20.235
+
+Already we see that the model does better than the AI. This is likely due to using cleaned data and the architecture of the neural net itself. Let's do some CR to fix the qualities.
+
+B5T1: CR lvl0 lr0.001 gamma0.8 food20 eps(0.2,0.1,2000) N2000 OptAdam
+B5T2: CR lvl1 lr0.001 gamma0.8 food20 eps(0.2,0.1,2000) N2000 OptAdam
+B5T3: CR lvl2 lr0.001 gamma0.8 food20 eps(0.2,0.1,2000) N2000 OptAdam
+
+The curated training may have ruined it! Let's try some RR to see if it is redeemable.
+
+Monkey test (#3%, m0%, b5%, d1)
+ Model | Score
+-------+-------
+  B5T2 | 12.441, 11.924, 12.278, 11.732, 12.176
+  B5T3 | 4.361, 4.400, 4.287, 4.407, 4.311
+  B5T4 | 2.709, 4.319, 4.203, 4.030, 4.147
+  B6T1 | 20.476, 20.566, 20.636, 19.834, 20.660
+  B6T0 | 29.783, 29.646, 28.895, 28.349, 28.757
+
+B5T4: RR lr0.001 gamma0.8 food20 eps(0.2,0.05,10000) N50000 OptAdam (#3%, m0%, b5%, d1%)
+
+It ended up being pretty stupid. I will work off of B5T0 again.
+
+B6T0: B5T0
+B6T1: RR lr0.001 gamma0.8 food20 eps(0.2,0.05,10000) N50000 OptAdam (#3%, m0%, b5%, d1%)
+
+I believe the issue is that after B6T0 the performance is good because it trained against the AI but the qualities are all off. Then when we do reinforcement training, it throws those quality values more towards the correct values while destroying the accurate decision making structure. If we were to to SL followed by some RR, followed by SL again, it should work. SL will get the network in the right neighborhood for accurate decision making, RR will bring the qualities into range, and then SL should make the qualities similar to before. So if we do SL on B6T1, it will bring back the ddecision making, but the qualities will be more accurate. Then, we can do more RR to refine the AI.

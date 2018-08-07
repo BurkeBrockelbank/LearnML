@@ -37,9 +37,9 @@ if __name__ == "__main__":
     batches = 10
     reports = 5
     N = 500
-    epsilon_start = 0.1
+    epsilon_start = 0.2
     epsilon_end = 0.05
-    n_epsilon = 5000
+    n_epsilon = 10000
     epsilon_tuple = (epsilon_start, epsilon_end, n_epsilon)
     def epsilon(n):
         return (epsilon_start - epsilon_end)*\
@@ -51,7 +51,7 @@ if __name__ == "__main__":
     # Create the map
     room_start = rg.rand_room(500, [0.03,0,0.05,0.01])
     # Create brain to train
-    monkey_brain = brain.BrainLinearAI()#V3()
+    monkey_brain = brain.BrainV3()
     # Put brain in monkey in grid
     monkeys = [monkey.Monkey(monkey_brain)]
     monkeys[0].pos = (len(room_start[1])//2,len(room_start[2])//2)
@@ -59,20 +59,34 @@ if __name__ == "__main__":
     g_CR = grid.Grid(monkeys, room_start)
 
     # Make data paths for the monkeys
-    paths = ['AIDATA\\AIData'+str(i)+'.txt' for i in range(50)][0:3]
+    paths = ['AIDATA\\AIData'+str(i)+'CLEAN.txt' for i in range(50)][0:6]
+
+    # rg.play_record('AIDATA\\AIData0CLEAN.txt')
+
+    # train.clean_data(paths, [s.replace('.txt', 'CLEAN.txt') for s in paths])
 
     # # Load brain from permanent memory
     # monkey_brain.load_state_dict(torch.load('brainsave_supervised.txt'))
 
     # # Train the monkey
-    # loss_report = train.supervised_training(10, 3, paths, monkey_brain, \
+    # loss_report = train.cross_entropy_supervised_training(8, 6, paths, \
+    #     monkey_brain, lr_supervised)
+
+    # # Train the monkey
+    # loss_report = train.supervised_training(8, 6, paths, monkey_brain, \
     #     gamma, max_discount, lr_supervised, 10, intermediate='brain_intermediate')
 
     # # Save the brain
-    # torch.save(monkey_brain.state_dict(), 'B2T0lr005.brainsave')
+    # torch.save(monkey_brain.state_dict(), 'B5T0.brainsave')
 
-    # # Load brain from permanent memory
-    # monkey_brain.load_state_dict(torch.load('B2T7.brainsave'))
+    # plt.title('Supervised Training' + str(lr_supervised), )
+    # plt.xlabel('Batch number (8 epochs of 6 batches)')
+    # plt.ylabel('Average Loss per Data Point')
+    # plt.plot(*zip(*loss_report))
+    # plt.show()
+
+    # Load brain from permanent memory
+    monkey_brain.load_state_dict(torch.load('B6T0.brainsave'))
 
     # Model testing
     test_results = []
@@ -89,7 +103,7 @@ if __name__ == "__main__":
     train.dqn_training(g, 60, gamma, 0, watch = True)
 
     # # Curated learning 
-    # loss_report = train.curated_bananas_dqn(g, CR_level, 50000, gamma, \
+    # loss_report = train.curated_bananas_dqn(g_CR, CR_level, 4000, gamma, \
     #     lr_reinforcement, 20, block_index = CR_block_index, \
     #     random_start = False, epsilon = lambda x: epsilon(x))
 
@@ -97,10 +111,13 @@ if __name__ == "__main__":
     loss_report = train.dqn_training(g, 50000, gamma, lr_reinforcement, \
     epsilon = epsilon, watch = False)
 
+    # Save the brain
+    torch.save(monkey_brain.state_dict(), 'B6T1.brainsave')
+
     plt.title('Learning ' + str(lr_reinforcement), )
     plt.xlabel('Turn')
     plt.ylabel('Loss')
-    plt.ylim(0,6)
+    # plt.ylim(0,6)
     plt.plot(*zip(*loss_report))
     plt.show()
 
@@ -108,18 +125,6 @@ if __name__ == "__main__":
         block_index = CR_block_index, watch = True)
     train.dqn_training(g, 60, gamma, 0, watch = True)
 
-    input('Exit now to avoid saving')
-    for i in range(100):
-        input('Are you sure?')
-
-    # Save the brain
-    torch.save(monkey_brain.state_dict(), 'B2T8.brainsave')
-
-    # plt.title('Supervised Learning on RAND_ROOM lr' + str(lr_supervised))
-    # plt.xlabel('Turn')
-    # plt.ylabel('Loss')
-    # plt.plot(*zip(*train_data))
-    # plt.show()
 
     # # Build monkeys
     # monkeys = [monkey.Monkey(brain.BrainLinearAI()) for i in \
@@ -135,8 +140,6 @@ if __name__ == "__main__":
     # # Generate training data from the A.I.
     # train.monkey_training_data(1000000, paths, g, loud=[])
 
-    # # Generate training data
-    # train.training_data(1000,['throwaway.txt'], g)
 
     # # Load brain from permanent memory
     # monkey_brain.load_state_dict(torch.load('brainsave_v2.txt'))

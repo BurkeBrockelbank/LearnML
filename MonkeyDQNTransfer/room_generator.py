@@ -198,3 +198,28 @@ def rand_room(size, rates):
             room[block_index,i,j] = 1
 
     return room
+
+def play_record(path):
+    """
+    This function reads in the training data from a path and replays it for
+    viewing.
+
+    Args:
+        path: The path to the data.
+    """
+    in_f = open(path, 'r')
+    in_lines = in_f.readlines()
+    in_f.close()
+    # parse the input lines
+    data = [eval(x.rstrip()) for x in in_lines]
+    # As a reminder, the data structure is
+    # food (int), action (int),board state (torch.tensor dtype=torch.uint8)
+
+    # Iterate through the data
+    for x in data:
+        food = x[0]
+        action = x[1]
+        board = x[2]
+        print('food', food)
+        print(channel_to_ASCII(board))
+        input('>>>' + gl.WASD[action])

@@ -84,7 +84,6 @@ def monkey_training_data(N, paths, g, loud=[]):
                     else:
                         charity = True
 
-
 def training_data(N, paths, g,loud=[]):
     """
     This generates training data for the monkey with user input.
@@ -117,8 +116,127 @@ def training_data(N, paths, g,loud=[]):
             outF.write('\n')
             outF.close()
 
+def clean_data(in_paths, out_paths):
+    """
+    Removes portions of the data where the monkey is stuck.
+
+    Args:
+        in_paths: The paths pointing to the original data files.
+        out_paths: The paths pointing to the target data files.
+    """
+    for in_path, out_path in zip(in_paths, out_paths):
+        in_f = open(in_path, 'r')
+        in_lines = in_f.readlines()
+        in_f.close()
+        # parse the input lines
+        data = [eval(x.rstrip()) for x in in_lines]
+        # Iterate backwards through data
+        for i in range(len(data)-1, 3,-1):
+            # Check if the surroundings are the same (infinite loops)
+            # composed of either 1 or two states.
+            if all(data[i][2].view(-1) == data[i-1][2].view(-1)) \
+                or all(data[i][2].view(-1) == data[i-2][2].view(-1)) \
+                or all(data[i][2].view(-1) == data[i-4][2].view(-1)):
+                del data[i]
+        out_f = open(out_path, 'w')
+        for line in data:
+            line = str(line)
+            line = line.replace('tensor', 'torch.tensor')
+            line = line.replace(' ', '')
+            line = line.replace('\n', '')
+            out_f.write(line)
+            out_f.write('\n')
+        out_f.close()
+
+def cross_entropy_supervised_training(epochs, batches, paths, brain, \
+    lr, intermediate=''):
+    """
+    This performs supervised training on the monkey without consulting the
+    exact values of the qualities. Qualities out of the model go through a
+    softmax before being compared to a one-hot vector denoting the direction
+    the AI moved. Due to all the cuts in the data, it has become unreliable
+    to consult the quality. Losses are reported every batch.
+
+    
+    Args:
+        N: The number of epochs to run in training.
+        paths: A list of paths leading to the data files.
+        brain: The brain to train..
+        lr: The learning rate to use.
+        intermediate: The file to save intermediate brain trainings to.
+
+    Returns:
+        0: Training data in the form of list of tuples. First element is epoch
+        number, second number is average loss over this epoch.
+    """
+    # Set the brain to training mode
+    brain.train()
+
+    data_set = []
+
+    # First read all training data
+    for path in paths:
+        print('Reading', path)
+        in_f = open(path, 'r')
+        in_lines = in_f.readlines()
+        in_f.close()
+        # parse the input lines
+        data = [eval(x.rstrip()) for x in in_lines]
+        data_set += data
+
+    # Calculate batch data
+    batch_length = len(data_set)//batches
+
+    # Report status
+    print('Data loaded')
+
+    # Now we do the actual learning!
+    # Define the loss function
+    criterion = nn.CrossEntropyLoss()
+    # Create an optimizer
+    optimizer = torch.optim.Adagrad(brain.parameters(), lr=lr)
+    loss_record = []
+    # Iterate through epochs
+    for epoch in range(epochs):
+        # Permute the data to decorrelate it.
+        random.shuffle(data_set)
+        # Separate into batches
+        batched_data = []
+        for batch_no in range(batches-1):
+            batch_start = batch_no*batch_length
+            batched_data.append(data_set[batch_start:batch_start+batch_length])
+        batched_data.append(data_set[(batches-1)*batch_length:])
+
+        # Iterate through data
+        for batch_no, batch_set in enumerate(batched_data):
+            total_loss = 0
+            print('Epoch', epoch, 'Batch', batch_no, 'begun')
+            for food, action, vision in batch_set:
+                s = (food, vision)
+                # Get the quality of the action the monkey did
+                predicted_Qs = brain.forward(s)
+                # Calculate the loss
+                loss = criterion(predicted_Qs[None], torch.LongTensor([action]))
+                # Zero the gradients
+                optimizer.zero_grad()
+                # perform a backward pass
+                loss.backward()
+                # Update the weights
+                optimizer.step()
+                # Add to total loss
+                total_loss += float(loss)
+            # Add to loss record
+            loss_record.append((epoch*batches+batch_no, total_loss/batch_length))
+            print('Epoch', epoch, 'batch', batch_no, 'loss', total_loss/batch_length)
+
+        # Save brain
+        if intermediate != '':
+            torch.save(brain.state_dict(), intermediate)
+
+    return loss_record
+
 def supervised_training(epochs, batches, paths, brain, gamma, \
-    max_discount, lr, reports, intermediate = ''):
+    max_discount, lr, report = True, intermediate = ''):
     """
     This performs supervised training on the monkey. 
     
@@ -210,17 +328,11 @@ def supervised_training(epochs, batches, paths, brain, gamma, \
             batch_start = batch_no*batch_length
             batched_data.append(data_set[batch_start:batch_start+batch_length])
         batched_data.append(data_set[(batches-1)*batch_length:])
-        # See if we are reporting this time
-        if epoch%(epochs//reports) == epochs%(epochs//reports):
-            report_this = True
-            total_loss = 0
-        else:
-            report_this = False
 
         # Iterate through data
         for batch_no, batch_set in enumerate(batched_data):
-            if report_this:
-                print('Epoch', epoch, 'Batch', batch_no, 'begun')
+            total_loss = 0
+            print('Epoch', epoch, 'Batch', batch_no, 'begun')
             for real_Q, food, action, vision in batch_set:
                 s = (food, vision)
                 # Get the quality of the action the monkey did
@@ -245,12 +357,12 @@ def supervised_training(epochs, batches, paths, brain, gamma, \
                 # Update the weights
                 optimizer.step()
                 # Add to total loss
-                if report_this:
+                if report:
                     total_loss += float(loss)
-        # Add to loss record
-        if report_this:
-            loss_record.append((epoch, total_loss/len(data_set)))
-            print('Epoch', epoch, 'loss', total_loss/len(data_set))
+            # Add to loss record
+            if report:
+                loss_record.append((epoch*batches+batch_no, total_loss/batch_length))
+                print('Epoch', epoch, 'batch', batch_no, 'loss', total_loss/batch_length)
 
         # Save brain
         if intermediate != '':
