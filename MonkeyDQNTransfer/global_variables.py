@@ -56,6 +56,7 @@ SIGHT11 = torch.ones((11,11), dtype=torch.uint8)
 SIGHT5 = torch.ones((5,5), dtype=torch.uint8)
 # Note: SIGHT must be square and have an uneven number of rows.
 SIGHT = SIGHT11
+RADIUS = len(SIGHT)//2
 
 # Define the block types
 BLOCK_TYPES = ['#', 'm', 'b', 'd']

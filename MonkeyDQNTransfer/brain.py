@@ -23,6 +23,7 @@ import layers
 
 import random
 import bisect
+import itertools
 
 class BrainDQN(nn.Module):
     """
@@ -621,3 +622,136 @@ class BrainV3(BrainDQN):
         h = F.relu(self.f3(h))
         Q = self.f4(h)
         return Q
+
+class BrainDecisionAI(BrainDQN):
+    """
+    This is an antificial intelligence for moving towards bananas. It moves
+    towards the closest bananas and outputs a quality each time it moves.
+
+    No memory implementation.
+    """
+
+    def __init__(self, gamma, r_b, r_e, r_d):
+        """
+        There is no neural net to initialize, but we do need to initialize the
+        parent class to inherit its user-defined functions.
+
+        Args:
+            gamma: The discount factor that will be used for defining the
+            qualities that the AI outputs.
+            r_b: The immediate reward for a turn where the monkey gets a banana
+            r_e: The immediate reward for a turn where a monkey just eats food.
+            r_d: The immediate reward of death.
+        """
+        BrainDQN.__init__(self)
+
+        self.pi = self.pi_greedy
+
+        self.gamma = gamma
+
+        self.r_b = r_b
+        self.r_e = r_e
+        self.r_d = r_d
+
+        self.Q_null = r_e*1/(1-gamma)
+        self.Q_ave = (r_b * (1+gamma+gamma**2+gamma**3)+ gamma**4 * Q_null +\
+            3*Q_null)/4
+
+    def pi(self, s):# Set default policy.
+        return self.pi_greedy(s)
+
+    def __get_move__(self, s):
+        """
+        This function returns the coordinates of the
+        closest banana to the monkey.
+
+        Args:
+            s: The state of the system.
+        
+        Returns:
+            1: Integer denoting number of moves away.
+            2: Integer denoting the first move in the series.
+        """
+        banana_locations = [x[1:] for x in s[gl.INDEX_BANANA].nonzero()]
+        banana_reorigin =[(x[0]-gl.RADIUS, x[1]-gl.RADIUS) for x in banana_locations]
+        banana_distances = [abs(x[0])+abs(x[1]) for x in banana_reorigin]
+        banana_sort = zip(banana_distances, banana_locations)
+        banana_sort.sort()
+
+        for banana_distance, banana_location in banana_sort:
+            has_path, path = self.__has_path__(s, banana_location):
+            if has_path:
+                return path
+        return tuple() 
+
+
+    def __has_path__(self, s, location):
+        """
+        This function determines if there is a path towards a banana.
+        For this path, every move must be made walking towards the banana.
+
+        Args:
+            s: The state of the system
+            location: The location of the banana
+
+        Returns:
+            0: Boolean
+            1: Tuple of integers denoting path.
+        """
+
+        relative_location = [el-gl.RADIUS for el in location]
+        moves = []
+        if relative_location[0] < 0:
+            moves += [gl.WASD.index('w')]*abs(relative_location[0])
+        else:
+            moves += [gl.WASD.index('s')]*abs(relative_location[0])
+        if relative_location[1] < 0:
+            moves += [gl.WASD.index('a')]*abs(relative_location[1])
+        else:
+            moves += [gl.WASD.index('d')]*abs(relative_location[1])
+
+        for perm in itertools.permutations(moves):
+            if self.__valid_path__(s, location, perm):
+                return True, tuple(perm)
+
+
+    def __valid_path__(s, location, path):
+        """
+        Determines if the path leads the monkey to the location without going
+        through any walls or lava.
+
+        Args:
+            s: The state of the system
+            location: The location of the banana
+            path: A tuple of moves to get to the location.
+
+        Returns:
+        0: Boolean
+        """
+        pos = (gl.RADIUS, gl.RADIUS)
+        for action in path:
+            symbol = gl.WASD[action]
+            if self.dead:
+                pass
+            elif symbol  == 'a':
+                self.pos = (self.pos[0], self.pos[1]-1)
+            elif symbol  == 'd':
+                self.pos = (self.pos[0], self.pos[1]+1)
+            elif symbol  == ' ':
+                self.pos = (self.pos[0], self.pos[1])
+            elif symbol  == 'w':
+                self.pos = (self.pos[0]-1, self.pos[1])
+            elif symbol  == 's':
+                self.pos = (self.pos[0]+1, self.pos[1])
+            if all(s[[gl.INDEX_DANGER,gl.INDEX_BARRIER], pos[0], pos[1]] == 0):
+                # The way is clear:
+                pass
+            else:
+                return False
+        return True
+
+
+
+
+    def forward(self, s):
+        pass

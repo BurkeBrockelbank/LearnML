@@ -281,6 +281,7 @@ Monkey test (#3%, m0%, b5%, d1)
   B5T4 | 2.709, 4.319, 4.203, 4.030, 4.147
   B6T1 | 20.476, 20.566, 20.636, 19.834, 20.660
   B6T0 | 29.783, 29.646, 28.895, 28.349, 28.757
+  B6T2 | 26.02, 26.305, 24.994, 23.664, 24.105
 
 B5T4: RR lr0.001 gamma0.8 food20 eps(0.2,0.05,10000) N50000 OptAdam (#3%, m0%, b5%, d1%)
 
@@ -290,3 +291,7 @@ B6T0: B5T0
 B6T1: RR lr0.001 gamma0.8 food20 eps(0.2,0.05,10000) N50000 OptAdam (#3%, m0%, b5%, d1%)
 
 I believe the issue is that after B6T0 the performance is good because it trained against the AI but the qualities are all off. Then when we do reinforcement training, it throws those quality values more towards the correct values while destroying the accurate decision making structure. If we were to to SL followed by some RR, followed by SL again, it should work. SL will get the network in the right neighborhood for accurate decision making, RR will bring the qualities into range, and then SL should make the qualities similar to before. So if we do SL on B6T1, it will bring back the ddecision making, but the qualities will be more accurate. Then, we can do more RR to refine the AI.
+
+B6T2: Supervised AIData0CLEAN.txt-AIData5CLEAN.txt lr0.01 epoch8 batch6 max_discount0.05 OptAdagrad
+
+The qualities are way off again. I think I need to start with an AI that has qualities.

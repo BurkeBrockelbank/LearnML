@@ -65,28 +65,28 @@ if __name__ == "__main__":
 
     # train.clean_data(paths, [s.replace('.txt', 'CLEAN.txt') for s in paths])
 
-    # # Load brain from permanent memory
-    # monkey_brain.load_state_dict(torch.load('brainsave_supervised.txt'))
+    # Load brain from permanent memory
+    monkey_brain.load_state_dict(torch.load('B6T1.brainsave'))
 
-    # # Train the monkey
-    # loss_report = train.cross_entropy_supervised_training(8, 6, paths, \
-    #     monkey_brain, lr_supervised)
+    # Train the monkey
+    loss_report = train.cross_entropy_supervised_training(8, 6, paths, \
+        monkey_brain, lr_supervised)
 
     # # Train the monkey
     # loss_report = train.supervised_training(8, 6, paths, monkey_brain, \
     #     gamma, max_discount, lr_supervised, 10, intermediate='brain_intermediate')
 
-    # # Save the brain
-    # torch.save(monkey_brain.state_dict(), 'B5T0.brainsave')
+    # Save the brain
+    torch.save(monkey_brain.state_dict(), 'B6T2.brainsave')
 
-    # plt.title('Supervised Training' + str(lr_supervised), )
-    # plt.xlabel('Batch number (8 epochs of 6 batches)')
-    # plt.ylabel('Average Loss per Data Point')
-    # plt.plot(*zip(*loss_report))
-    # plt.show()
+    plt.title('Supervised Training' + str(lr_supervised), )
+    plt.xlabel('Batch number (8 epochs of 6 batches)')
+    plt.ylabel('Average Loss per Data Point')
+    plt.plot(*zip(*loss_report))
+    plt.show()
 
-    # Load brain from permanent memory
-    monkey_brain.load_state_dict(torch.load('B6T0.brainsave'))
+    # # Load brain from permanent memory
+    # monkey_brain.load_state_dict(torch.load('B6T0.brainsave'))
 
     # Model testing
     test_results = []
