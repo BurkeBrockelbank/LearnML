@@ -621,6 +621,8 @@ class BrainV3(BrainDQN):
         h = F.relu(self.f2(h))
         h = F.relu(self.f3(h))
         Q = self.f4(h)
+
+        print(Q)
         return Q
 
 class BrainDecisionAI(BrainDQN):
@@ -654,44 +656,47 @@ class BrainDecisionAI(BrainDQN):
         self.r_d = r_d
 
         self.Q_null = r_e*1/(1-gamma)
-        self.Q_ave = (r_b * (1+gamma+gamma**2+gamma**3)+ gamma**4 * Q_null +\
-            3*Q_null)/4
+        self.Q_ave = (r_b + 3*r_e) * (1+gamma+gamma**2+gamma**3) / 4 + \
+            gamma**4 * self.Q_null
+        print(self.Q_ave)
 
     def pi(self, s):# Set default policy.
         return self.pi_greedy(s)
 
-    def __get_move__(self, s):
+    def __get_move__(self, channels):
         """
-        This function returns the coordinates of the
-        closest banana to the monkey.
+        This function finds the closest banana with a valid path.
 
         Args:
-            s: The state of the system.
+            channels: The channel map of the monkey's vision.
         
         Returns:
             1: Integer denoting number of moves away.
             2: Integer denoting the first move in the series.
         """
-        banana_locations = [x[1:] for x in s[gl.INDEX_BANANA].nonzero()]
-        banana_reorigin =[(x[0]-gl.RADIUS, x[1]-gl.RADIUS) for x in banana_locations]
-        banana_distances = [abs(x[0])+abs(x[1]) for x in banana_reorigin]
-        banana_sort = zip(banana_distances, banana_locations)
+        banana_locations = channels[gl.INDEX_BANANA].nonzero()
+        banana_reorigin = banana_locations - gl.RADIUS
+        banana_distances = [torch.norm(x.float(), 1) for x in banana_reorigin]
+        banana_sort = list(zip(banana_distances, range(len(banana_locations)), \
+            banana_locations))
         banana_sort.sort()
 
-        for banana_distance, banana_location in banana_sort:
-            has_path, path = self.__has_path__(s, banana_location):
-            if has_path:
-                return path
-        return tuple() 
+
+        for banana_distance, uniquifier, banana_location in banana_sort:
+            has_path, path = self.__has_path__(channels, banana_location)
+            if has_path and len(path) > 0:
+                print([gl.WASD[action] for action in path])
+                return len(path), path[0]
+        return 0, -1
 
 
-    def __has_path__(self, s, location):
+    def __has_path__(self, channels, location):
         """
         This function determines if there is a path towards a banana.
         For this path, every move must be made walking towards the banana.
 
         Args:
-            s: The state of the system
+            channels: The channel map of the monkey's vision.
             location: The location of the banana
 
         Returns:
@@ -699,29 +704,30 @@ class BrainDecisionAI(BrainDQN):
             1: Tuple of integers denoting path.
         """
 
-        relative_location = [el-gl.RADIUS for el in location]
+        relative_location = location-gl.RADIUS
+        relative_location = relative_location.tolist()
         moves = []
         if relative_location[0] < 0:
             moves += [gl.WASD.index('w')]*abs(relative_location[0])
         else:
-            moves += [gl.WASD.index('s')]*abs(relative_location[0])
+            moves += [gl.WASD.index('s')]*relative_location[0]
         if relative_location[1] < 0:
             moves += [gl.WASD.index('a')]*abs(relative_location[1])
         else:
-            moves += [gl.WASD.index('d')]*abs(relative_location[1])
-
+            moves += [gl.WASD.index('d')]*relative_location[1]
         for perm in itertools.permutations(moves):
-            if self.__valid_path__(s, location, perm):
+            if self.__valid_path__(channels, location, perm):
                 return True, tuple(perm)
+        return False, tuple()
 
 
-    def __valid_path__(s, location, path):
+    def __valid_path__(self, channels, location, path):
         """
         Determines if the path leads the monkey to the location without going
         through any walls or lava.
 
         Args:
-            s: The state of the system
+            channels: The channel map of the monkey's vision.
             location: The location of the banana
             path: A tuple of moves to get to the location.
 
@@ -731,19 +737,18 @@ class BrainDecisionAI(BrainDQN):
         pos = (gl.RADIUS, gl.RADIUS)
         for action in path:
             symbol = gl.WASD[action]
-            if self.dead:
-                pass
-            elif symbol  == 'a':
-                self.pos = (self.pos[0], self.pos[1]-1)
+            if symbol  == 'a':
+                pos = (pos[0], pos[1]-1)
             elif symbol  == 'd':
-                self.pos = (self.pos[0], self.pos[1]+1)
+                pos = (pos[0], pos[1]+1)
             elif symbol  == ' ':
-                self.pos = (self.pos[0], self.pos[1])
+                pos = (pos[0], pos[1])
             elif symbol  == 'w':
-                self.pos = (self.pos[0]-1, self.pos[1])
+                pos = (pos[0]-1, pos[1])
             elif symbol  == 's':
-                self.pos = (self.pos[0]+1, self.pos[1])
-            if all(s[[gl.INDEX_DANGER,gl.INDEX_BARRIER], pos[0], pos[1]] == 0):
+                pos = (pos[0]+1, pos[1])
+            if all(channels[[gl.INDEX_DANGER,gl.INDEX_BARRIER], \
+                pos[0], pos[1]] == 0):
                 # The way is clear:
                 pass
             else:
@@ -751,7 +756,72 @@ class BrainDecisionAI(BrainDQN):
         return True
 
 
+    def __quality_event__(self, immediate_reward, turn):
+        """
+        Returns the quality of a sequence of moves where the monkey gets
+        immediate_reward on turn "turn" and then just gets the average
+        reward afterwards.
 
+        Args:
+            immediate_reward: The immediate reward of the event in question.
+            turn: The turn to get that reward on.
+
+        Returns:
+            0: The quality of this sequence.
+        """
+        Q = immediate_reward + self.gamma * self.Q_ave
+        for i in range(turn-1):
+            Q = self.r_e + self.gamma * Q
+        return Q
 
     def forward(self, s):
-        pass
+        """
+        This function generates a vector of qualities from the state given.
+
+        Args:
+            s: The state of the system.
+        
+        Returns:
+            0: 5-tensor of qualities.
+        """
+        # Unpack state
+        food, vision = s
+
+        # First we need to get a move for the monkey
+        distance, move = self.__get_move__(vision)
+
+        # Now we know all the qualities must be lower than this,
+        # so we can assign the qualities.
+        # First the case where a banana was found:
+        if distance > 0:
+            Q = torch.zeros(len(gl.WASD)) + \
+                self.__quality_event__(self.r_e, distance)
+            Q[move] = self.__quality_event__(self.r_b, distance)
+            print(Q)
+        else:
+            Q = torch.zeros(len(gl.WASD)) + self.Q_null
+
+        # Now we check for lava and barriers
+        for action in range(len(gl.WASD)):
+            pos = (gl.RADIUS, gl.RADIUS)
+            symbol = gl.WASD[action]
+            if symbol  == 'a':
+                self.pos = (pos[0], pos[1]-1)
+            elif symbol  == 'd':
+                self.pos = (pos[0], pos[1]+1)
+            elif symbol  == ' ':
+                self.pos = (pos[0], pos[1])
+            elif symbol  == 'w':
+                self.pos = (pos[0]-1, pos[1])
+            elif symbol  == 's':
+                self.pos = (pos[0]+1, pos[1])
+            if vision[gl.INDEX_DANGER, pos[0], pos[1]] == 1:
+                Q[action] = self.r_d
+            if vision[gl.INDEX_BARRIER, pos[0], pos[1]] == 1:
+                Q[action] = self.Q_null
+
+        # Finally, penalize staying still.
+        Q[gl.WASD.index(' ')] = self.Q_null
+
+        print(Q)
+        return Q
